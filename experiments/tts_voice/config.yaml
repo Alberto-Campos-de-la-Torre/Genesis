@@ -1,0 +1,64 @@
+# Genesis TTS Voice Evolution Experiment Configuration
+
+project_name: "tts_voice_evolution"
+output_dir: "./outputs/tts_voice"
+checkpoint_dir: "./checkpoints/tts_voice"
+log_dir: "./logs/tts_voice"
+seed: 42
+
+# TTS Model settings
+tts:
+  model_type: "tacotron2"  # tacotron2, fastspeech2, vits
+  style_dim: 128
+  speaker_dim: 256
+  num_speakers: 1
+  sample_rate: 22050
+  n_mel_channels: 80
+  hop_length: 256
+  win_length: 1024
+  n_fft: 1024
+
+# Hardware settings
+device: "cuda:0"
+mixed_precision: "fp16"
+
+# Genetic algorithm settings for style evolution
+genetic:
+  population_size: 30
+  generations: 100
+  mutation_rate: 0.15
+  crossover_rate: 0.7
+  elite_size: 3
+  tournament_size: 3
+  slerp_ratio: 0.5
+  mutation_scale: 0.02
+  adaptive_mutation: true
+  mutation_decay: 0.98
+  min_mutation_rate: 0.02
+
+# Style evolution settings
+style_evolution:
+  num_style_tokens: 10
+  perturbation_scale: 0.1
+
+# Fitness evaluation settings
+fitness:
+  target_mcd: 5.0  # Target MCD value
+  weight_naturalness: 0.4
+  weight_similarity: 0.6
+  use_f0_rmse: true
+  use_vuv_error: true
+
+# Data settings
+data:
+  data_dir: "./data/tts"
+  max_samples: 1000
+  eval_samples: 100
+
+# Logging
+use_tensorboard: true
+use_wandb: false
+wandb_project: "genesis-tts"
+log_every_n_steps: 5
+eval_every_n_generations: 5
+save_every_n_generations: 10

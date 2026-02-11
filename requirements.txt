@@ -1,0 +1,35 @@
+# Genesis AI Evolution Laboratory - Dependencies
+
+# Core ML Framework
+torch>=2.0.0
+transformers>=4.36.0
+peft>=0.7.0
+accelerate>=0.25.0
+datasets>=2.16.0
+
+# Distributed Training
+ray[tune]>=2.9.0
+deepspeed>=0.12.0
+
+# Evolutionary Algorithms
+deap>=1.4.0
+
+# Scientific Computing
+scipy>=1.11.0
+numpy>=1.24.0
+
+# Configuration & Utilities
+pyyaml>=6.0
+tqdm>=4.66.0
+
+# Logging & Visualization
+tensorboard>=2.15.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# TTS (Optional)
+# librosa>=0.10.0
+# soundfile>=0.12.0
+# pyworld>=0.3.0

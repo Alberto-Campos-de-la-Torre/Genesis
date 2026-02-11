@@ -1,0 +1,83 @@
+# Genesis Medical LLM Experiment Configuration
+
+project_name: "medical_llm_evolution"
+output_dir: "./outputs/medical_llm"
+checkpoint_dir: "./checkpoints/medical_llm"
+log_dir: "./logs/medical_llm"
+seed: 42
+
+# Model settings
+teacher_model: "meta-llama/Llama-2-7b-hf"
+student_model: null  # Derived from teacher
+use_lora: true
+
+# Hardware settings
+teacher_device: "cuda:0"
+student_device: "cuda:1"
+mixed_precision: "fp16"
+
+# Genetic algorithm settings
+genetic:
+  population_size: 20
+  generations: 50
+  mutation_rate: 0.1
+  crossover_rate: 0.7
+  elite_size: 2
+  tournament_size: 3
+  slerp_ratio: 0.5
+  mutation_scale: 0.01
+  mutation_prob_per_weight: 0.1
+  adaptive_mutation: true
+  mutation_decay: 0.95
+  min_mutation_rate: 0.01
+
+# Knowledge distillation settings
+distillation:
+  temperature: 4.0
+  alpha: 0.5
+  learning_rate: 2.0e-5
+  warmup_steps: 100
+  max_steps: 1000
+  batch_size: 8
+  gradient_accumulation_steps: 4
+  use_feature_distillation: false
+  feature_layers: [-1, -2, -3]
+  feature_weight: 0.1
+
+# Pruning settings
+pruning:
+  target_sparsity: 0.3
+  pruning_method: "magnitude"
+  structured: false
+  granularity: "element"
+  iterative_steps: 3
+  initial_sparsity: 0.0
+  final_sparsity: 0.3
+  pruning_schedule: "cubic"
+
+# LoRA settings
+lora:
+  r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules:
+    - "q_proj"
+    - "v_proj"
+    - "k_proj"
+    - "o_proj"
+  bias: "none"
+  task_type: "CAUSAL_LM"
+
+# Experiment settings
+experiment_type: "llm"
+dataset_name: "pubmed_qa"
+max_samples: 5000
+eval_samples: 500
+
+# Logging
+use_tensorboard: true
+use_wandb: false
+wandb_project: "genesis-medical"
+log_every_n_steps: 10
+eval_every_n_generations: 5
+save_every_n_generations: 10
