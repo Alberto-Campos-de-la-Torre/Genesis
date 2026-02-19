@@ -325,8 +325,9 @@ class EvolutionaryOptimizer:
         # Train briefly
         trainer.train(num_steps=100)
 
-        # Update best individual's state
-        best.state_dict = self.student.get_state_dict()
+        # Update best individual's state using the full model state dict so it
+        # stays consistent with how the rest of the population is stored.
+        best.state_dict = self.student.get_state_dict(lora_only=False)
 
     def _save_checkpoint(self, generation: int) -> None:
         """Save evolution checkpoint."""
@@ -401,6 +402,14 @@ class EvolutionaryOptimizer:
                 target_sparsity=target_sparsity or self.config.pruning.target_sparsity,
                 pruning_method=self.config.pruning.pruning_method,
                 structured=self.config.pruning.structured,
+                granularity=self.config.pruning.granularity,
+                block_size=self.config.pruning.block_size,
+                iterative_steps=self.config.pruning.iterative_steps,
+                initial_sparsity=self.config.pruning.initial_sparsity,
+                final_sparsity=self.config.pruning.final_sparsity,
+                pruning_schedule=self.config.pruning.pruning_schedule,
+                skip_layers=self.config.pruning.skip_layers,
+                layer_sparsity_overrides=self.config.pruning.layer_sparsity_overrides,
             )
             self._pruner = Pruner(
                 model=self.student.model,

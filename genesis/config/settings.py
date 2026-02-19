@@ -54,12 +54,17 @@ class PruningConfig:
     pruning_method: str = "magnitude"  # magnitude, gradient, taylor
     structured: bool = False
     granularity: str = "element"  # element, row, column, block
+    block_size: int = 4
     iterative_steps: int = 1
 
     # Gradual pruning
     initial_sparsity: float = 0.0
     final_sparsity: float = 0.3
     pruning_schedule: str = "cubic"  # linear, cubic, exponential
+
+    # Layer-wise settings
+    skip_layers: list = field(default_factory=list)
+    layer_sparsity_overrides: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -72,6 +77,7 @@ class LoRAConfig:
     target_modules: list = field(default_factory=lambda: ["q_proj", "v_proj"])
     bias: str = "none"
     task_type: str = "CAUSAL_LM"
+    modules_to_save: Optional[list] = None
 
 
 @dataclass
@@ -182,7 +188,7 @@ class GenesisConfig:
                 "crossover_rate": self.genetic.crossover_rate,
                 "elite_size": self.genetic.elite_size,
                 "tournament_size": self.genetic.tournament_size,
-                "slerp_ratio": self.slerp_ratio if hasattr(self, "slerp_ratio") else self.genetic.slerp_ratio,
+                "slerp_ratio": self.genetic.slerp_ratio,
                 "mutation_scale": self.genetic.mutation_scale,
                 "mutation_prob_per_weight": self.genetic.mutation_prob_per_weight,
                 "adaptive_mutation": self.genetic.adaptive_mutation,
@@ -206,10 +212,13 @@ class GenesisConfig:
                 "pruning_method": self.pruning.pruning_method,
                 "structured": self.pruning.structured,
                 "granularity": self.pruning.granularity,
+                "block_size": self.pruning.block_size,
                 "iterative_steps": self.pruning.iterative_steps,
                 "initial_sparsity": self.pruning.initial_sparsity,
                 "final_sparsity": self.pruning.final_sparsity,
                 "pruning_schedule": self.pruning.pruning_schedule,
+                "skip_layers": self.pruning.skip_layers,
+                "layer_sparsity_overrides": self.pruning.layer_sparsity_overrides,
             },
             "lora": {
                 "r": self.lora.r,
@@ -218,5 +227,6 @@ class GenesisConfig:
                 "target_modules": self.lora.target_modules,
                 "bias": self.lora.bias,
                 "task_type": self.lora.task_type,
+                "modules_to_save": self.lora.modules_to_save,
             },
         }

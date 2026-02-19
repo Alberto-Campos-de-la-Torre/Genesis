@@ -210,7 +210,8 @@ class Population:
 
     def _tournament_select(self, tournament_size: int = 3) -> Individual:
         """Select individual using tournament selection."""
-        tournament = np.random.choice(self._individuals, size=tournament_size, replace=False)
+        actual_size = min(tournament_size, len(self._individuals))
+        tournament = np.random.choice(self._individuals, size=actual_size, replace=False)
         return max(tournament, key=lambda x: x.fitness)
 
     @property

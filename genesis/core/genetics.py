@@ -155,8 +155,9 @@ def mutate(
     if np.random.random() > mutation_rate:
         return deepcopy(state_dict)
 
+    _float_dtypes = (torch.float16, torch.float32, torch.float64, torch.bfloat16)
     for key, param in state_dict.items():
-        if param.requires_grad if hasattr(param, "requires_grad") else True:
+        if param.dtype in _float_dtypes:
             if method == "gaussian":
                 # Create mutation mask
                 mask = torch.rand_like(param.float()) < mutation_prob_per_weight

@@ -6,7 +6,6 @@ from genesis.distillation.kd_loss import (
     soft_target_loss,
     feature_distillation_loss,
 )
-from genesis.distillation.trainer import DistillationTrainer, TrainingConfig
 
 __all__ = [
     "KDLoss",
@@ -16,3 +15,12 @@ __all__ = [
     "DistillationTrainer",
     "TrainingConfig",
 ]
+
+
+def __getattr__(name):
+    if name in ("DistillationTrainer", "TrainingConfig"):
+        from genesis.distillation.trainer import DistillationTrainer, TrainingConfig
+        if name == "DistillationTrainer":
+            return DistillationTrainer
+        return TrainingConfig
+    raise AttributeError(f"module 'genesis.distillation' has no attribute {name!r}")

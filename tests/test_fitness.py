@@ -109,15 +109,33 @@ class TestPerplexityFitness:
 
     def test_perplexity_fitness_lower_perplexity_higher_fitness(self):
         """Test that lower perplexity gives higher fitness."""
-        # Create two models with different quality
+        # Use labels that are all class-0 so we can control which model wins.
+        dataloader = [
+            {
+                "input_ids": torch.zeros(4, 10, dtype=torch.long),
+                "attention_mask": torch.ones(4, 10, dtype=torch.long),
+                "labels": torch.zeros(4, 10, dtype=torch.long),  # all token 0
+            }
+        ]
+
+        # good_model: zero embeddings + bias strongly predicts class 0 → low loss
         good_model = DummyModel()
+        good_model.embedding.weight.data.zero_()
+        good_model.linear.weight.data.zero_()
+        good_model.linear.bias.data.zero_()
+        good_model.linear.bias.data[0] = 20.0  # always predicts class 0
+
+        # bad_model: same setup but strongly predicts class 1 (wrong) → high loss
         bad_model = DummyModel()
+        bad_model.embedding.weight.data.zero_()
+        bad_model.linear.weight.data.zero_()
+        bad_model.linear.bias.data.zero_()
+        bad_model.linear.bias.data[1] = 20.0  # always predicts class 1
 
-        # Make bad model have higher loss
-        bad_model.linear.weight.data *= 10
+        good_result = PerplexityFitness(dataloader=dataloader, device="cpu").evaluate(good_model)
+        bad_result = PerplexityFitness(dataloader=dataloader, device="cpu").evaluate(bad_model)
 
-        # This is a basic sanity check - in practice you'd need
-        # proper training to see meaningful differences
+        assert good_result.score > bad_result.score
 
 
 class TestAccuracyFitness:

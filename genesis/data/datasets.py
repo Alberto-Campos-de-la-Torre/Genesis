@@ -1,6 +1,7 @@
 """Dataset loaders for Genesis experiments."""
 
 from typing import Any, Callable, Optional
+import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from datasets import load_dataset
@@ -383,5 +384,3 @@ def create_dataloader(
     )
 
 
-# Import numpy for TTSDataset
-import numpy as np

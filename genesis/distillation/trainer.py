@@ -1,7 +1,9 @@
 """Distillation training loop with dual-GPU support."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -11,9 +13,11 @@ from tqdm import tqdm
 import logging
 
 from genesis.distillation.kd_loss import KDLoss
-from genesis.models.teacher import TeacherModel
-from genesis.models.student import StudentModel
 from genesis.config.hardware import synchronize, empty_cache
+
+if TYPE_CHECKING:
+    from genesis.models.teacher import TeacherModel
+    from genesis.models.student import StudentModel
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +93,7 @@ class DistillationTrainer:
         # Mixed precision
         self.scaler = None
         if self.config.mixed_precision in ["fp16", "bf16"]:
-            self.scaler = torch.amp.GradScaler()
+            self.scaler = torch.amp.GradScaler("cuda")
 
         # Training state
         self.global_step = 0
@@ -153,6 +157,8 @@ class DistillationTrainer:
         progress_bar = tqdm(total=num_steps, desc="Training")
         accumulated_loss = 0.0
         accumulated_steps = 0
+        log_window_loss = 0.0   # Sum of per-optimizer-step average losses since last log
+        log_window_steps = 0    # Number of optimizer steps since last log
 
         data_iter = iter(self.train_dataloader)
 
@@ -174,11 +180,16 @@ class DistillationTrainer:
             if accumulated_steps >= self.config.gradient_accumulation_steps:
                 self._optimization_step()
                 self.global_step += 1
+
+                # Record the average loss for this optimizer step, then reset
+                log_window_loss += accumulated_loss / self.config.gradient_accumulation_steps
+                log_window_steps += 1
+                accumulated_loss = 0.0
                 accumulated_steps = 0
 
                 # Logging
                 if self.global_step % self.config.logging_steps == 0:
-                    avg_loss = accumulated_loss / self.config.gradient_accumulation_steps
+                    avg_loss = log_window_loss / log_window_steps
                     log_entry = {
                         "step": self.global_step,
                         "loss": avg_loss,
@@ -187,7 +198,8 @@ class DistillationTrainer:
                     }
                     self.training_logs.append(log_entry)
                     logger.info(f"Step {self.global_step}: loss={avg_loss:.4f}")
-                    accumulated_loss = 0.0
+                    log_window_loss = 0.0
+                    log_window_steps = 0
 
                 # Evaluation
                 if self.eval_dataloader and self.global_step % self.config.eval_steps == 0:
