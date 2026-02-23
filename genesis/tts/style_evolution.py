@@ -254,7 +254,7 @@ class StyleEvolution:
 
     def load_state(self, path: str) -> None:
         """Load evolution state from file."""
-        state = torch.load(path)
+        state = torch.load(path, weights_only=False)
         self._generation = state["generation"]
         self._population = state["population"]
         self._fitnesses = state["fitnesses"]

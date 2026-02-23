@@ -26,6 +26,13 @@ AVAILABLE_MODELS = {
     "phi-2": "microsoft/phi-2",
     "tinyllama": "TinyLlama/TinyLlama-1.1B-Chat-v1.0",
 
+    # Qwen3 Models
+    "qwen3-1.7b": "Qwen/Qwen3-1.7B",
+    "qwen3-4b": "Qwen/Qwen3-4B",
+    "qwen3-8b": "Qwen/Qwen3-8B",
+    "qwen3-14b": "Qwen/Qwen3-14B",
+    "qwen3-32b": "Qwen/Qwen3-32B",
+
     # TTS Models (placeholders)
     "tacotron2": "nvidia/tacotron2",
 }
@@ -136,11 +143,14 @@ def check_huggingface_token():
         logger.info("HuggingFace token found in environment")
         return True
 
-    # Check for token file
-    token_file = Path.home() / ".huggingface" / "token"
-    if token_file.exists():
-        logger.info("HuggingFace token found in ~/.huggingface/token")
-        return True
+    # Check for token file (both old and new HF CLI locations)
+    for token_file in [
+        Path.home() / ".cache" / "huggingface" / "token",
+        Path.home() / ".huggingface" / "token",
+    ]:
+        if token_file.exists():
+            logger.info(f"HuggingFace token found in {token_file}")
+            return True
 
     logger.warning("No HuggingFace token found.")
     logger.warning("Some models (like Llama) require authentication.")

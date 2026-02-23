@@ -110,7 +110,7 @@ class TTSChild:
             model_path: Path to model checkpoint
             device: Device to load on
         """
-        checkpoint = torch.load(model_path, map_location=device)
+        checkpoint = torch.load(model_path, map_location=device, weights_only=False)
 
         if "model_state_dict" in checkpoint:
             state_dict = checkpoint["model_state_dict"]
@@ -324,7 +324,7 @@ class TTSChild:
     @classmethod
     def load(cls, path: str) -> "TTSChild":
         """Load TTS child from file."""
-        state = torch.load(path)
+        state = torch.load(path, weights_only=False)
         config = TTSConfig(**state["config"])
 
         child = cls(

@@ -311,7 +311,7 @@ class LoRAManager:
 
     def load_lora(self, path: str) -> None:
         """Load LoRA weights from file."""
-        state_dict = torch.load(path, map_location="cpu")
+        state_dict = torch.load(path, map_location="cpu", weights_only=False)
         self.set_lora_state_dict(state_dict)
         logger.info(f"LoRA weights loaded from {path}")
 

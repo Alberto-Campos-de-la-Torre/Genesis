@@ -10,6 +10,7 @@ from genesis.core.fitness import (
     FitnessResult,
     PerplexityFitness,
     AccuracyFitness,
+    QAFitness,
     CompositeFitness,
     CustomFitness,
     create_fitness_evaluator,
@@ -293,3 +294,132 @@ class TestFitnessEvaluatorFactory:
                 fitness_type="unknown",
                 dataloader=[],
             )
+
+
+class TestQAFitness:
+    """Tests for QAFitness evaluator."""
+
+    def _make_model_with_generate(self, vocab_size=50, seq_len=5):
+        """Create a model with a generate() method that returns fixed tokens."""
+        class GenerateModel(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.embedding = nn.Embedding(vocab_size, 32)
+                self.linear = nn.Linear(32, vocab_size)
+
+            def forward(self, input_ids, attention_mask=None, labels=None, **kwargs):
+                h = self.embedding(input_ids)
+                logits = self.linear(h)
+                class Out: pass
+                o = Out(); o.logits = logits; o.loss = None
+                return o
+
+            def generate(self, input_ids, attention_mask=None, max_new_tokens=10, **kwargs):
+                # Always return the input unchanged (echo model)
+                return input_ids
+
+        return GenerateModel()
+
+    def _make_tokenizer(self):
+        mock_tok = type("Tok", (), {})()
+        # batch_decode just returns the token IDs as strings
+        mock_tok.batch_decode = lambda ids, **kw: [" ".join(str(t) for t in row.tolist()) for row in ids]
+        return mock_tok
+
+    def test_evaluate_returns_fitness_result(self):
+        model = self._make_model_with_generate()
+        tok = self._make_tokenizer()
+        dataloader = [
+            {
+                "input_ids": torch.randint(0, 50, (2, 5)),
+                "attention_mask": torch.ones(2, 5, dtype=torch.long),
+                "target_text": ["yes", "no"],
+            }
+        ]
+        evaluator = QAFitness(dataloader=dataloader, tokenizer=tok, device="cpu")
+        result = evaluator.evaluate(model)
+        assert isinstance(result, FitnessResult)
+        assert 0.0 <= result.score <= 1.0
+
+    def test_evaluate_metrics_keys(self):
+        model = self._make_model_with_generate()
+        tok = self._make_tokenizer()
+        dataloader = [
+            {
+                "input_ids": torch.randint(0, 50, (1, 5)),
+                "attention_mask": torch.ones(1, 5, dtype=torch.long),
+                "target_text": ["yes"],
+            }
+        ]
+        evaluator = QAFitness(dataloader=dataloader, tokenizer=tok, device="cpu")
+        result = evaluator.evaluate(model)
+        assert "exact_match" in result.metrics
+        assert "f1" in result.metrics
+        assert "samples_evaluated" in result.metrics
+
+    def test_normalize_lowercases_and_strips(self):
+        tok = self._make_tokenizer()
+        eval_ = QAFitness(dataloader=[], tokenizer=tok, device="cpu")
+        assert eval_._normalize("  HELLO World  ") == "hello world"
+
+    def test_compute_f1_identical(self):
+        tok = self._make_tokenizer()
+        eval_ = QAFitness(dataloader=[], tokenizer=tok, device="cpu")
+        assert eval_._compute_f1("cat sat", "cat sat") == pytest.approx(1.0)
+
+    def test_compute_f1_no_overlap(self):
+        tok = self._make_tokenizer()
+        eval_ = QAFitness(dataloader=[], tokenizer=tok, device="cpu")
+        assert eval_._compute_f1("hello world", "foo bar") == pytest.approx(0.0)
+
+    def test_compute_f1_partial_overlap(self):
+        tok = self._make_tokenizer()
+        eval_ = QAFitness(dataloader=[], tokenizer=tok, device="cpu")
+        f1 = eval_._compute_f1("cat sat on", "cat sat mat")
+        assert 0.0 < f1 < 1.0
+
+    def test_max_samples_limits_evaluation(self):
+        model = self._make_model_with_generate()
+        tok = self._make_tokenizer()
+        # 3 batches of 2 each = 6 total samples
+        dataloader = [
+            {
+                "input_ids": torch.randint(0, 50, (2, 5)),
+                "attention_mask": torch.ones(2, 5, dtype=torch.long),
+                "target_text": ["yes", "no"],
+            }
+        ] * 3
+        evaluator = QAFitness(
+            dataloader=dataloader,
+            tokenizer=tok,
+            device="cpu",
+            max_samples=2,  # Only process 1 batch
+        )
+        result = evaluator.evaluate(model)
+        assert result.metrics["samples_evaluated"] <= 2
+
+    def test_exact_match_when_model_echoes_target(self):
+        """If model echoes input tokens and those match target_text, EM > 0."""
+        tok = self._make_tokenizer()
+
+        class EchoModel(nn.Module):
+            def forward(self, input_ids, **kwargs):
+                class Out: pass
+                o = Out(); o.logits = None; o.loss = None
+                return o
+            def generate(self, input_ids, **kwargs):
+                return input_ids  # echo exactly
+
+        # target_text must match what batch_decode would return for input_ids
+        input_ids = torch.tensor([[1, 2, 3]])
+        expected = tok.batch_decode(input_ids)[0]  # "1 2 3"
+        dataloader = [
+            {
+                "input_ids": input_ids,
+                "attention_mask": torch.ones(1, 3, dtype=torch.long),
+                "target_text": [expected],
+            }
+        ]
+        evaluator = QAFitness(dataloader=dataloader, tokenizer=tok, device="cpu")
+        result = evaluator.evaluate(EchoModel())
+        assert result.metrics["exact_match"] == pytest.approx(1.0)

@@ -73,7 +73,7 @@ class StudentModel:
         # Load base model
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_name_or_path,
-            torch_dtype=self.dtype,
+            dtype=self.dtype,
             device_map=self.device if quantization_config else None,
             quantization_config=quantization_config,
             trust_remote_code=self.trust_remote_code,

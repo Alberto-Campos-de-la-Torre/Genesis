@@ -349,7 +349,7 @@ class EvolutionaryOptimizer:
 
     def load_checkpoint(self, checkpoint_path: str) -> None:
         """Load evolution checkpoint."""
-        state = torch.load(checkpoint_path)
+        state = torch.load(checkpoint_path, weights_only=False)
 
         self._current_generation = state["generation"]
         self._population.load_state(state["population_state"])

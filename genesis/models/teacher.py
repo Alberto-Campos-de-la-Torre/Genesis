@@ -61,17 +61,15 @@ class TeacherModel:
                 load_in_4bit=self.load_in_4bit,
             )
 
-        # Load model
+        # Load model — use device_map="auto" to spread large models across
+        # all available GPUs automatically (e.g. Qwen3-32B on dual RTX 5090)
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_name_or_path,
             torch_dtype=self.dtype,
-            device_map=self.device if quantization_config else None,
+            device_map="auto",
             quantization_config=quantization_config,
             trust_remote_code=self.trust_remote_code,
         )
-
-        if quantization_config is None:
-            self._model = self._model.to(self.device)
 
         # Set to eval mode (teacher is never trained)
         self._model.eval()
@@ -238,11 +236,17 @@ class TeacherModel:
             del self._tokenizer
             self._tokenizer = None
 
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        try:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:
+            pass
 
         logger.info("Teacher model unloaded")
 
     def __del__(self):
         """Cleanup on deletion."""
-        self.unload()
+        try:
+            self.unload()
+        except Exception:
+            pass

@@ -398,7 +398,7 @@ class DistillationTrainer:
         # Load training state
         state_path = os.path.join(checkpoint_dir, "training_state.pt")
         if os.path.exists(state_path):
-            state = torch.load(state_path)
+            state = torch.load(state_path, weights_only=False)
             self.global_step = state["global_step"]
             self.epoch = state["epoch"]
             self.optimizer.load_state_dict(state["optimizer_state"])

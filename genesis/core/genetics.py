@@ -88,11 +88,11 @@ def crossover(
     keys = list(parent1_state.keys())
 
     if method == "slerp":
-        # SLERP-based crossover
+        # SLERP-based crossover — performed on CPU to avoid GPU OOM
         for key in keys:
             if key in parent2_state:
-                p1 = parent1_state[key]
-                p2 = parent2_state[key]
+                p1 = parent1_state[key].cpu()
+                p2 = parent2_state[key].cpu()
                 if p1.shape == p2.shape:
                     # Add small random variation to slerp_ratio
                     t = slerp_ratio + np.random.uniform(-0.1, 0.1)
@@ -101,27 +101,27 @@ def crossover(
                 else:
                     child_state[key] = p1.clone()
             else:
-                child_state[key] = parent1_state[key].clone()
+                child_state[key] = parent1_state[key].cpu().clone()
 
     elif method == "uniform":
         # Uniform crossover: randomly select each parameter from either parent
         for key in keys:
             if key in parent2_state and np.random.random() < 0.5:
-                child_state[key] = parent2_state[key].clone()
+                child_state[key] = parent2_state[key].cpu().clone()
             else:
-                child_state[key] = parent1_state[key].clone()
+                child_state[key] = parent1_state[key].cpu().clone()
 
     elif method == "single_point":
         # Single-point crossover: split at random point
         crossover_point = np.random.randint(0, len(keys))
         for i, key in enumerate(keys):
             if i < crossover_point:
-                child_state[key] = parent1_state[key].clone()
+                child_state[key] = parent1_state[key].cpu().clone()
             else:
                 if key in parent2_state:
-                    child_state[key] = parent2_state[key].clone()
+                    child_state[key] = parent2_state[key].cpu().clone()
                 else:
-                    child_state[key] = parent1_state[key].clone()
+                    child_state[key] = parent1_state[key].cpu().clone()
 
     else:
         raise ValueError(f"Unknown crossover method: {method}")
@@ -157,34 +157,36 @@ def mutate(
 
     _float_dtypes = (torch.float16, torch.float32, torch.float64, torch.bfloat16)
     for key, param in state_dict.items():
-        if param.dtype in _float_dtypes:
+        # Always operate on CPU to avoid GPU OOM during population evolution
+        cpu_param = param.cpu()
+        if cpu_param.dtype in _float_dtypes:
             if method == "gaussian":
                 # Create mutation mask
-                mask = torch.rand_like(param.float()) < mutation_prob_per_weight
-                noise = torch.randn_like(param.float()) * mutation_scale
+                mask = torch.rand_like(cpu_param.float()) < mutation_prob_per_weight
+                noise = torch.randn_like(cpu_param.float()) * mutation_scale
 
                 # Apply mutation only where mask is True
-                mutated_param = param.float() + noise * mask.float()
-                mutated_state[key] = mutated_param.to(param.dtype)
+                mutated_param = cpu_param.float() + noise * mask.float()
+                mutated_state[key] = mutated_param.to(cpu_param.dtype)
 
             elif method == "uniform":
-                mask = torch.rand_like(param.float()) < mutation_prob_per_weight
-                noise = (torch.rand_like(param.float()) - 0.5) * 2 * mutation_scale
-                mutated_param = param.float() + noise * mask.float()
-                mutated_state[key] = mutated_param.to(param.dtype)
+                mask = torch.rand_like(cpu_param.float()) < mutation_prob_per_weight
+                noise = (torch.rand_like(cpu_param.float()) - 0.5) * 2 * mutation_scale
+                mutated_param = cpu_param.float() + noise * mask.float()
+                mutated_state[key] = mutated_param.to(cpu_param.dtype)
 
             elif method == "adaptive":
                 # Scale mutation by parameter magnitude
-                param_scale = torch.abs(param.float()).mean() + 1e-8
-                mask = torch.rand_like(param.float()) < mutation_prob_per_weight
-                noise = torch.randn_like(param.float()) * mutation_scale * param_scale
-                mutated_param = param.float() + noise * mask.float()
-                mutated_state[key] = mutated_param.to(param.dtype)
+                param_scale = torch.abs(cpu_param.float()).mean() + 1e-8
+                mask = torch.rand_like(cpu_param.float()) < mutation_prob_per_weight
+                noise = torch.randn_like(cpu_param.float()) * mutation_scale * param_scale
+                mutated_param = cpu_param.float() + noise * mask.float()
+                mutated_state[key] = mutated_param.to(cpu_param.dtype)
 
             else:
                 raise ValueError(f"Unknown mutation method: {method}")
         else:
-            mutated_state[key] = param.clone()
+            mutated_state[key] = cpu_param.clone()
 
     return mutated_state
 
