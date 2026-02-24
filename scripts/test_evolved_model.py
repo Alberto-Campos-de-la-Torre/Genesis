@@ -59,13 +59,20 @@ def _find_run_dir(run_dir: str | None) -> Path:
 
 
 def _best_checkpoint(run_dir: Path) -> Path:
-    """Return checkpoint-best if it exists, else checkpoint-final."""
-    best = run_dir / "checkpoint-best"
+    """Return the best *evolved* checkpoint.
+
+    Priority:
+      1. checkpoint-final  — saved after evolution with population.best LoRA weights.
+                             This IS the best evolved model.
+      2. checkpoint-best   — saved mid-distillation when eval loss was lowest.
+                             Only used as a fallback when evolution was skipped.
+    """
     final = run_dir / "checkpoint-final"
-    if best.exists() and (best / "adapter_model.safetensors").exists():
-        return best
+    best  = run_dir / "checkpoint-best"
     if final.exists() and (final / "adapter_model.safetensors").exists():
         return final
+    if best.exists() and (best / "adapter_model.safetensors").exists():
+        return best
     sys.exit(f"[error] No valid checkpoint found in {run_dir}")
 
 
@@ -155,37 +162,68 @@ def evaluate(run_dir_arg: str | None, num_prompts: int, seq_len: int, batch_size
     console.print(f"Run dir    : [green]{run_dir}[/green]")
     console.print(f"Checkpoint : [cyan]{ckpt_path.name}[/cyan]")
 
-    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    device = "cuda:1" if torch.cuda.is_available() and torch.cuda.device_count() > 1 else \
+             "cuda:0" if torch.cuda.is_available() else "cpu"
 
-    # ── 1. Load base model (no LoRA) ────────────────────────────────────
-    console.print("\n[bold]Loading base model (no LoRA)…[/bold]")
     from transformers import AutoModelForCausalLM, AutoTokenizer
+    from peft import PeftModel
 
     tokenizer = AutoTokenizer.from_pretrained(STUDENT_PATH)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    base_model = AutoModelForCausalLM.from_pretrained(
-        STUDENT_PATH, torch_dtype=torch.bfloat16
-    ).to(device)
-
     eval_loader = _build_eval_loader(tokenizer, seq_len, batch_size)
     console.print(f"[dim]Eval set: {len(eval_loader.dataset)} samples, seq_len={seq_len}[/dim]")
+
+    prompts = GENERATION_PROMPTS[:num_prompts]
+
+    # ── Load base model once, then wrap with LoRA (+~50 MB, no reload) ───
+    console.print("\n[bold]Loading base model (no LoRA)…[/bold]")
+    base_model = AutoModelForCausalLM.from_pretrained(
+        STUDENT_PATH, dtype=torch.bfloat16
+    ).to(device)
 
     console.print("[bold]Evaluating base model…[/bold]")
     base_loss, base_ppl = _evaluate_perplexity(base_model, eval_loader, device)
     base_fitness = 1.0 / (1.0 + base_ppl)
 
-    # ── 2. Load evolved model (base + LoRA adapter) ──────────────────────
-    console.print("[bold]Loading evolved model (base + LoRA adapter)…[/bold]")
-    from peft import PeftModel
+    base_gens = [_generate(base_model, tokenizer, p, device) for p in prompts]
 
-    evolved_model = PeftModel.from_pretrained(base_model, str(ckpt_path))
-    evolved_model = evolved_model.to(device)
+    # Wrap existing base model with LoRA adapter — loads weights to CPU first,
+    # then moves to device. This avoids PEFT's direct-to-GPU loading which can OOM
+    # on cards already occupied by Ollama or other processes.
+    console.print("[bold]Applying LoRA adapter to base model…[/bold]")
+    from safetensors.torch import load_file as _sft_load
+    from peft import PeftConfig
+
+    peft_config = PeftConfig.from_pretrained(str(ckpt_path))
+    evolved_model = PeftModel(base_model, peft_config)
+
+    adapter_path = ckpt_path / "adapter_model.safetensors"
+    cpu_weights = _sft_load(str(adapter_path), device="cpu")
+    # PEFT saves keys as "...lora_A.weight" but PeftModel state_dict uses
+    # "...lora_A.default.weight" (inserting the adapter name "default").
+    # Remap before loading so weights are actually injected.
+    remapped = {}
+    for k, v in cpu_weights.items():
+        new_k = k.replace("lora_A.weight", "lora_A.default.weight") \
+                 .replace("lora_B.weight", "lora_B.default.weight")
+        remapped[new_k] = v.to(device)
+    missing, unexpected = evolved_model.load_state_dict(remapped, strict=False)
+    if unexpected:
+        console.print(f"[yellow]Warning: {len(unexpected)} unexpected adapter keys[/yellow]")
+    # missing_keys here are the base model weights — expected, adapter only contains LoRA A/B.
+    del cpu_weights, remapped
+    torch.cuda.empty_cache()
 
     console.print("[bold]Evaluating evolved model…[/bold]")
     evo_loss, evo_ppl = _evaluate_perplexity(evolved_model, eval_loader, device)
     evo_fitness = 1.0 / (1.0 + evo_ppl)
+
+    evo_gens = [_generate(evolved_model, tokenizer, p, device) for p in prompts]
+
+    del evolved_model
+    torch.cuda.empty_cache()
 
     # ── 3. Metrics table ─────────────────────────────────────────────────
     delta_ppl  = evo_ppl  - base_ppl
@@ -209,11 +247,10 @@ def evaluate(run_dir_arg: str | None, num_prompts: int, seq_len: int, batch_size
     t.add_row("PPL",      f"{base_ppl:.2f}",  f"{evo_ppl:.2f}",   _delta(delta_ppl))
     t.add_row("Fitness",  f"{base_fitness:.6f}", f"{evo_fitness:.6f}", _delta(evo_fitness - base_fitness, invert=True))
 
-    # Training report summary — evolution is a list of per-gen dicts
     if report:
-        evo_gens = report.get("evolution", [])
-        if evo_gens:
-            reported_best = max(g.get("best_fitness", 0) for g in evo_gens)
+        evo_report_gens = report.get("evolution", [])
+        if evo_report_gens:
+            reported_best = max(g.get("best_fitness", 0) for g in evo_report_gens)
             t.add_row("Reported best fitness (train)", "—", f"{reported_best:.6f}", "")
 
     console.print(t)
@@ -224,7 +261,6 @@ def evaluate(run_dir_arg: str | None, num_prompts: int, seq_len: int, batch_size
     console.print(f"\nVerdict: {verdict}")
 
     # ── 4. Generation comparison ─────────────────────────────────────────
-    prompts = GENERATION_PROMPTS[:num_prompts]
     if prompts:
         console.rule("[bold yellow]Generation Comparison[/bold yellow]")
         gen_table = Table(show_header=True, header_style="bold", expand=True)
@@ -232,9 +268,7 @@ def evaluate(run_dir_arg: str | None, num_prompts: int, seq_len: int, batch_size
         gen_table.add_column("Base model",    style="white", width=55)
         gen_table.add_column("Evolved model", style="green", width=55)
 
-        for prompt in prompts:
-            base_gen = _generate(base_model,    tokenizer, prompt, device)
-            evo_gen  = _generate(evolved_model, tokenizer, prompt, device)
+        for prompt, base_gen, evo_gen in zip(prompts, base_gens, evo_gens):
             gen_table.add_row(
                 prompt[:28] + "…" if len(prompt) > 28 else prompt,
                 base_gen[:200],
