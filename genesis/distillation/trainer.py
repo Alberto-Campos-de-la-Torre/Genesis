@@ -210,7 +210,7 @@ class DistillationTrainer:
 
                 # Callback
                 if callback:
-                    callback(step_results)
+                    callback({**step_results, "step": self.global_step, "lr": self.scheduler.get_last_lr()[0]})
 
                 progress_bar.update(1)
 
@@ -244,6 +244,7 @@ class DistillationTrainer:
                 output_hidden_states=self.kd_loss.use_feature_distillation,
             )
             teacher_logits = teacher_outputs["logits"]
+            has_logprobs = teacher_outputs.get("has_logprobs", teacher_logits is not None)
 
         # Forward through student
         amp_dtype = torch.float16 if self.config.mixed_precision == "fp16" else torch.bfloat16
@@ -256,20 +257,35 @@ class DistillationTrainer:
             )
             student_logits = student_outputs["logits"]
 
-            # Move teacher logits to student device
-            teacher_logits_student_device = teacher_logits.to(self.student.device)
-
-            # Compute loss
-            loss_dict = self.kd_loss(
-                student_logits=student_logits,
-                teacher_logits=teacher_logits_student_device,
-                hard_labels=labels.to(self.student.device),
-                student_hidden_states=student_outputs.get("hidden_states"),
-                teacher_hidden_states=self._transfer_hidden_states(
-                    teacher_outputs.get("hidden_states")
-                ),
-                attention_mask=attention_mask.to(self.student.device) if attention_mask is not None else None,
-            )
+            if has_logprobs and teacher_logits is not None:
+                # Full KD loss: soft targets + hard labels
+                teacher_logits_student_device = teacher_logits.to(self.student.device)
+                loss_dict = self.kd_loss(
+                    student_logits=student_logits,
+                    teacher_logits=teacher_logits_student_device,
+                    hard_labels=labels.to(self.student.device),
+                    student_hidden_states=student_outputs.get("hidden_states"),
+                    teacher_hidden_states=self._transfer_hidden_states(
+                        teacher_outputs.get("hidden_states")
+                    ),
+                    attention_mask=attention_mask.to(self.student.device) if attention_mask is not None else None,
+                )
+            else:
+                # No logprobs from teacher — use hard-label CE only to avoid
+                # corrupting the student by training toward a uniform distribution.
+                shift_logits = student_logits[..., :-1, :].contiguous()
+                shift_labels = labels.to(self.student.device)[..., 1:].contiguous()
+                import torch.nn.functional as F
+                hard_loss = F.cross_entropy(
+                    shift_logits.view(-1, shift_logits.size(-1)),
+                    shift_labels.view(-1),
+                    ignore_index=-100,
+                )
+                loss_dict = {
+                    "total_loss": hard_loss,
+                    "hard_loss": hard_loss,
+                    "kd_loss": torch.tensor(0.0, device=self.student.device),
+                }
 
             loss = loss_dict["total_loss"] / self.config.gradient_accumulation_steps
 
@@ -338,18 +354,34 @@ class DistillationTrainer:
 
             # Teacher forward
             teacher_outputs = self.teacher.forward(input_ids, attention_mask)
-            teacher_logits = teacher_outputs["logits"].to(self.student.device)
+            teacher_logits = teacher_outputs["logits"]
+            has_logprobs = teacher_outputs.get("has_logprobs", teacher_logits is not None)
 
             # Student forward
             student_outputs = self.student.forward(input_ids, attention_mask)
             student_logits = student_outputs["logits"]
 
-            # Compute loss
-            loss_dict = self.kd_loss(
-                student_logits=student_logits,
-                teacher_logits=teacher_logits,
-                hard_labels=labels.to(self.student.device),
-            )
+            # Compute loss (hard-label only when teacher has no logprobs)
+            if has_logprobs and teacher_logits is not None:
+                loss_dict = self.kd_loss(
+                    student_logits=student_logits,
+                    teacher_logits=teacher_logits.to(self.student.device),
+                    hard_labels=labels.to(self.student.device),
+                )
+            else:
+                import torch.nn.functional as F
+                shift_logits = student_logits[..., :-1, :].contiguous()
+                shift_labels = labels.to(self.student.device)[..., 1:].contiguous()
+                hard_loss = F.cross_entropy(
+                    shift_logits.view(-1, shift_logits.size(-1)),
+                    shift_labels.view(-1),
+                    ignore_index=-100,
+                )
+                loss_dict = {
+                    "total_loss": hard_loss,
+                    "hard_loss": hard_loss,
+                    "kd_loss": torch.tensor(0.0),
+                }
 
             total_loss += loss_dict["total_loss"].item()
             total_kd_loss += loss_dict.get("kd_loss", torch.tensor(0)).item()

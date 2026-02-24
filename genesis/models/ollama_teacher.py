@@ -8,6 +8,7 @@ are directly usable in token-level KD loss with a Qwen3 student.
 
 import math
 import logging
+import time
 from typing import Optional
 
 import torch
@@ -72,14 +73,17 @@ class OllamaTeacher:
         tokenizer_path: Optional[str] = None,
         vocab_size: int = 151936,
         top_logprobs: int = 20,
+        fallback_model: Optional[str] = None,
     ):
         self.model_name = model_name
         self.base_url = base_url.rstrip("/")
         self._tokenizer_path = tokenizer_path
         self._vocab_size = vocab_size
         self.top_logprobs = top_logprobs
+        self.fallback_model = fallback_model
 
         self._tokenizer = None
+        self._logprobs_supported: bool = False  # set by load() after probing
         # Expose a .model attribute so teacher.model.config.vocab_size works
         self.model = _OllamaModelShim(
             _OllamaConfig(vocab_size=vocab_size, model_name=model_name)
@@ -90,7 +94,7 @@ class OllamaTeacher:
     # ------------------------------------------------------------------
 
     def load(self) -> None:
-        """Verify Ollama connectivity and load the tokenizer."""
+        """Verify Ollama connectivity, probe logprobs support, and load the tokenizer."""
         try:
             r = requests.get(f"{self.base_url}/api/tags", timeout=10)
             r.raise_for_status()
@@ -112,6 +116,38 @@ class OllamaTeacher:
 
             self._tokenizer = AutoTokenizer.from_pretrained(self._tokenizer_path)
             logger.info(f"Tokenizer loaded from {self._tokenizer_path}")
+
+        self._logprobs_supported = self._probe_logprobs()
+        if self._logprobs_supported:
+            logger.info("Ollama logprobs: SUPPORTED — KD soft-target loss enabled.")
+        else:
+            logger.warning(
+                "Ollama logprobs: NOT SUPPORTED — KD soft-target loss will be "
+                "disabled. Training will use hard-label cross-entropy only."
+            )
+
+    def _probe_logprobs(self) -> bool:
+        """Send a tiny test request and check whether logprobs are returned."""
+        try:
+            resp = requests.post(
+                f"{self.base_url}/v1/completions",
+                json={
+                    "model": self.model_name,
+                    "prompt": "Hi",
+                    "max_tokens": 1,
+                    "logprobs": True,
+                    "top_logprobs": 1,
+                    "stream": False,
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            choices = data.get("choices", [{}])
+            lp = (choices[0].get("logprobs") or {}) if choices else {}
+            return bool(lp.get("top_logprobs") or lp.get("token_logprobs"))
+        except Exception:
+            return False
 
     def unload(self) -> None:
         """Release local resources (tokenizer)."""
@@ -194,39 +230,69 @@ class OllamaTeacher:
         soft_targets = torch.full((batch_size, seq_len, self._vocab_size), uniform_val)
 
         for i, text in enumerate(texts):
-            try:
-                response = requests.post(
-                    f"{self.base_url}/v1/completions",
-                    json={
-                        "model": self.model_name,
-                        "prompt": text,
-                        "max_tokens": seq_len,
-                        "temperature": temperature,
-                        "logprobs": self.top_logprobs,
-                        "stream": False,
-                    },
-                    timeout=120,
-                )
-                response.raise_for_status()
-                data = response.json()
+            # Try primary model, then fallback (if configured), then uniform
+            models_to_try = [self.model_name]
+            if self.fallback_model:
+                models_to_try.append(self.fallback_model)
 
-                choices = data.get("choices", [{}])
-                if not choices:
-                    # soft_targets[i] already uniform from pre-fill
-                    continue
+            success = False
+            for model_name in models_to_try:
+                if success:
+                    break
+                backoff = 5.0
+                for attempt in range(3):
+                    try:
+                        response = requests.post(
+                            f"{self.base_url}/v1/completions",
+                            json={
+                                "model": model_name,
+                                "prompt": text,
+                                "max_tokens": seq_len,
+                                "temperature": temperature,
+                                "logprobs": self.top_logprobs,
+                                "stream": False,
+                            },
+                            timeout=120,
+                        )
+                        if response.status_code == 429:
+                            if self.fallback_model and model_name != self.fallback_model:
+                                logger.warning(
+                                    f"Ollama 429 on '{model_name}'. Switching to fallback '{self.fallback_model}'."
+                                )
+                            else:
+                                retry_after = float(response.headers.get("Retry-After", backoff))
+                                wait = max(retry_after, backoff)
+                                logger.warning(
+                                    f"Ollama 429 on '{model_name}'. Retrying in {wait:.1f}s (attempt {attempt+1}/3)."
+                                )
+                                time.sleep(wait)
+                                backoff = min(backoff * 2, 60.0)
+                            break  # move to next model (or next attempt)
+                        response.raise_for_status()
+                        data = response.json()
 
-                logprobs_data = choices[0].get("logprobs", {}) or {}
-                token_logprobs = logprobs_data.get("top_logprobs", []) or []
+                        choices = data.get("choices", [{}])
+                        if choices:
+                            logprobs_data = choices[0].get("logprobs", {}) or {}
+                            token_logprobs = logprobs_data.get("top_logprobs", []) or []
+                            for t, tok_lp in enumerate(token_logprobs[:seq_len]):
+                                if tok_lp:
+                                    dist = self._build_distribution(tok_lp, temperature)
+                                    if dist.sum() > 0:
+                                        soft_targets[i, t] = dist
+                        success = True
+                        break  # success — no need to try fallback
 
-                for t, tok_lp in enumerate(token_logprobs[:seq_len]):
-                    if tok_lp:
-                        dist = self._build_distribution(tok_lp, temperature)
-                        if dist.sum() > 0:
-                            soft_targets[i, t] = dist
-                        # else keep uniform pre-fill
+                    except requests.RequestException as e:
+                        if attempt < 2:
+                            logger.warning(f"Ollama request to '{model_name}' failed: {e}. Retrying in {backoff:.1f}s.")
+                            time.sleep(backoff)
+                            backoff = min(backoff * 2, 60.0)
+                        else:
+                            logger.warning(f"Ollama request to '{model_name}' failed after 3 attempts: {e}.")
 
-            except requests.RequestException as e:
-                logger.warning(f"Ollama API call failed: {e}. Using uniform distribution.")
+            if not success:
+                logger.warning("All teacher models exhausted. Using uniform distribution for this sample.")
                 # soft_targets[i] already uniform from pre-fill
 
         return soft_targets.to(device)
@@ -241,12 +307,23 @@ class OllamaTeacher:
         """
         Forward pass via Ollama, returning a logits-compatible dict.
 
-        Calls ``get_soft_targets`` and converts probabilities to log-space
-        logits (usable in KD loss via cross-entropy or KL-divergence).
+        When the Ollama server does not return logprobs (``has_logprobs=False``
+        in the returned dict) the caller should skip the KD term and rely only
+        on hard-label cross-entropy, because using a uniform soft-target
+        distribution would actively corrupt the student model.
         """
+        if not self._logprobs_supported:
+            return {"logits": None, "has_logprobs": False}
+
         soft = self.get_soft_targets(input_ids, attention_mask, temperature=1.0)
+        # Detect if all positions are still uniform (every API call failed)
+        uniform_val = 1.0 / self._vocab_size
+        is_uniform = (soft - uniform_val).abs().max().item() < 1e-7
+        if is_uniform:
+            return {"logits": None, "has_logprobs": False}
+
         logits = torch.log(soft.clamp(min=1e-9))
-        return {"logits": logits.to(input_ids.device)}
+        return {"logits": logits.to(input_ids.device), "has_logprobs": True}
 
     def generate(self, prompt: str, max_tokens: int = 256, **kwargs) -> str:
         """Plain text generation via Ollama."""
