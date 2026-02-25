@@ -4,23 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Genesis - AI Evolution Laboratory</title>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
             --primary: #00f5ff;
             --secondary: #bf00ff;
             --accent: #ff00aa;
+            --green: #00ff88;
+            --orange: #ff8800;
             --dark: #0a0a15;
             --darker: #050508;
-            --glass: rgba(255, 255, 255, 0.05);
+            --glass: rgba(255, 255, 255, 0.04);
             --glass-border: rgba(255, 255, 255, 0.1);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Inter', sans-serif;
@@ -30,892 +28,1059 @@
             line-height: 1.6;
         }
 
-        /* Animated Background */
+        /* ── Background ── */
         .bg-animation {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            overflow: hidden;
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: -1; overflow: hidden;
         }
-
         .bg-animation::before {
             content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
+            position: absolute; top: -50%; left: -50%;
+            width: 200%; height: 200%;
             background:
-                radial-gradient(circle at 20% 80%, rgba(0, 245, 255, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(191, 0, 255, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(255, 0, 170, 0.05) 0%, transparent 40%);
+                radial-gradient(circle at 20% 80%, rgba(0, 245, 255, 0.07) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(191, 0, 255, 0.07) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(255, 0, 170, 0.04) 0%, transparent 40%);
             animation: bgRotate 30s linear infinite;
         }
-
         @keyframes bgRotate {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
 
-        /* DNA Helix Animation */
-        .dna-helix {
-            position: fixed;
-            right: 5%;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 60px;
-            height: 400px;
-            opacity: 0.3;
-        }
-
-        .dna-strand {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-        }
-
-        .dna-dot {
-            position: absolute;
-            width: 8px;
-            height: 8px;
-            background: var(--primary);
-            border-radius: 50%;
-            box-shadow: 0 0 10px var(--primary);
-            animation: dnaSpin 4s ease-in-out infinite;
-        }
-
-        @keyframes dnaSpin {
-            0%, 100% { transform: translateX(0); }
-            50% { transform: translateX(40px); }
-        }
-
-        /* Neural Network Background */
-        .neural-bg {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-            opacity: 0.1;
-        }
-
+        .neural-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.08; }
         .neural-node {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            background: var(--primary);
-            border-radius: 50%;
+            position: absolute; width: 4px; height: 4px;
+            background: var(--primary); border-radius: 50%;
             animation: pulse 2s ease-in-out infinite;
         }
-
         @keyframes pulse {
             0%, 100% { opacity: 0.3; transform: scale(1); }
             50% { opacity: 1; transform: scale(1.5); }
         }
 
-        /* Header */
+        /* ── Header ── */
         header {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            padding: 1.5rem 5%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            position: fixed; top: 0; width: 100%;
+            padding: 1.2rem 5%;
+            display: flex; justify-content: space-between; align-items: center;
             z-index: 1000;
-            background: rgba(10, 10, 21, 0.8);
+            background: rgba(5, 5, 8, 0.85);
             backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--glass-border);
         }
-
         .logo {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.8rem;
-            font-weight: 900;
+            font-family: 'Orbitron', sans-serif; font-size: 1.6rem; font-weight: 900;
             background: linear-gradient(135deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            text-shadow: 0 0 30px rgba(0, 245, 255, 0.5);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
-
         nav a {
-            color: #fff;
-            text-decoration: none;
-            margin-left: 2rem;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            position: relative;
+            color: rgba(255,255,255,0.75); text-decoration: none;
+            margin-left: 1.8rem; font-size: 0.88rem; font-weight: 500;
+            transition: all 0.3s ease; position: relative;
         }
-
         nav a::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: var(--primary);
-            transition: width 0.3s ease;
+            content: ''; position: absolute; bottom: -4px; left: 0;
+            width: 0; height: 2px; background: var(--primary); transition: width 0.3s ease;
         }
+        nav a:hover::after { width: 100%; }
+        nav a:hover { color: var(--primary); }
 
-        nav a:hover::after {
-            width: 100%;
-        }
-
-        nav a:hover {
-            color: var(--primary);
-        }
-
-        /* Hero Section */
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 8rem 5% 4rem;
-            position: relative;
-        }
-
-        .hero-content {
-            text-align: center;
-            max-width: 900px;
-        }
-
-        .hero h1 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: clamp(2.5rem, 8vw, 5rem);
-            font-weight: 900;
-            margin-bottom: 1.5rem;
-            line-height: 1.1;
-        }
-
-        .hero h1 span {
-            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            animation: gradientShift 5s ease infinite;
-            background-size: 200% 200%;
-        }
-
-        @keyframes gradientShift {
-            0%, 100% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-        }
-
-        .hero p {
-            font-size: 1.25rem;
-            color: rgba(255, 255, 255, 0.7);
-            margin-bottom: 2.5rem;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .cta-buttons {
-            display: flex;
-            gap: 1.5rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .btn {
-            padding: 1rem 2.5rem;
-            border-radius: 50px;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            font-size: 1rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            color: var(--darker);
-            box-shadow: 0 0 30px rgba(0, 245, 255, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 0 50px rgba(0, 245, 255, 0.5);
-        }
-
-        .btn-secondary {
-            background: transparent;
-            color: #fff;
-            border: 2px solid var(--glass-border);
-        }
-
-        .btn-secondary:hover {
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        /* Glass Cards */
+        /* ── Shared ── */
         .glass-card {
             background: var(--glass);
             backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 2rem;
+            border-radius: 16px; padding: 2rem;
             transition: all 0.3s ease;
         }
-
         .glass-card:hover {
-            border-color: var(--primary);
-            box-shadow: 0 0 40px rgba(0, 245, 255, 0.1);
-            transform: translateY(-5px);
+            border-color: rgba(0, 245, 255, 0.3);
+            box-shadow: 0 0 40px rgba(0, 245, 255, 0.06);
+            transform: translateY(-3px);
         }
-
-        /* Sections */
-        section {
-            padding: 6rem 5%;
-        }
-
-        .section-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
+        section { padding: 6rem 5%; }
+        .section-header { text-align: center; margin-bottom: 3.5rem; }
         .section-header h2 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
+            font-family: 'Orbitron', sans-serif; font-size: 2.2rem; margin-bottom: 0.8rem;
             background: linear-gradient(135deg, #fff, var(--primary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         }
+        .section-header p { color: rgba(255,255,255,0.55); max-width: 620px; margin: 0 auto; }
 
-        .section-header p {
-            color: rgba(255, 255, 255, 0.6);
-            max-width: 600px;
-            margin: 0 auto;
+        .tag {
+            display: inline-block; padding: 0.25rem 0.75rem; border-radius: 50px;
+            font-size: 0.72rem; font-weight: 600; letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
+        .tag-done { background: rgba(0,255,136,0.12); color: var(--green); border: 1px solid rgba(0,255,136,0.3); }
+        .tag-wip  { background: rgba(255,136,0,0.12); color: var(--orange); border: 1px solid rgba(255,136,0,0.3); }
+        .tag-next { background: rgba(191,0,255,0.12); color: #d070ff; border: 1px solid rgba(191,0,255,0.3); }
 
-        /* Architecture Section */
-        .architecture {
-            background: linear-gradient(180deg, transparent, rgba(0, 245, 255, 0.02), transparent);
+        /* ── Hero ── */
+        .hero {
+            min-height: 100vh; display: flex; align-items: center;
+            justify-content: center; padding: 9rem 5% 5rem; position: relative;
         }
-
-        .arch-diagram {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 2rem;
+        .hero-content { text-align: center; max-width: 900px; }
+        .hero h1 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(2.2rem, 7vw, 4.5rem);
+            font-weight: 900; margin-bottom: 1.5rem; line-height: 1.1;
         }
-
-        .gpu-container {
-            display: grid;
-            grid-template-columns: 1fr auto 1fr;
-            gap: 2rem;
-            align-items: center;
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--primary), var(--secondary), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            animation: gradientShift 5s ease infinite; background-size: 200% 200%;
         }
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        .hero p { font-size: 1.15rem; color: rgba(255,255,255,0.65); margin-bottom: 2.5rem; max-width: 700px; margin-left: auto; margin-right: auto; }
 
-        .gpu-box {
-            background: var(--glass);
+        /* live stat badges in hero */
+        .hero-stats {
+            display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap;
+            margin-bottom: 2.5rem;
+        }
+        .hero-stat {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: 12px; padding: 1rem 1.8rem; text-align: center;
+        }
+        .hero-stat .val {
+            font-family: 'Orbitron', sans-serif; font-size: 1.8rem;
+            font-weight: 700; color: var(--primary);
+        }
+        .hero-stat .lbl { font-size: 0.78rem; color: rgba(255,255,255,0.5); margin-top: 0.2rem; }
+
+        .cta-buttons { display: flex; gap: 1.2rem; justify-content: center; flex-wrap: wrap; }
+        .btn {
+            padding: 0.9rem 2.2rem; border-radius: 50px; font-weight: 600;
+            text-decoration: none; transition: all 0.3s ease; font-size: 0.95rem;
+            display: inline-flex; align-items: center; gap: 0.5rem;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: var(--darker); box-shadow: 0 0 30px rgba(0,245,255,0.25);
+        }
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 0 50px rgba(0,245,255,0.45); }
+        .btn-secondary {
+            background: transparent; color: #fff;
             border: 1px solid var(--glass-border);
-            border-radius: 15px;
-            padding: 2rem;
+        }
+        .btn-secondary:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* ── Results Banner ── */
+        .results-banner {
+            background: linear-gradient(135deg, rgba(0,245,255,0.05), rgba(191,0,255,0.05));
+            border-top: 1px solid rgba(0,245,255,0.15);
+            border-bottom: 1px solid rgba(191,0,255,0.15);
+            padding: 3rem 5%;
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 2rem; max-width: 1100px; margin: 0 auto;
             text-align: center;
         }
-
-        .gpu-box h3 {
-            font-family: 'Orbitron', sans-serif;
-            color: var(--primary);
-            margin-bottom: 1rem;
+        .result-item .number {
+            font-family: 'Orbitron', sans-serif; font-size: 2.5rem; font-weight: 900;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .result-item .label {
+            font-size: 0.82rem; color: rgba(255,255,255,0.5);
+            margin-top: 0.3rem; text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .result-item .sub {
+            font-size: 0.75rem; color: rgba(255,255,255,0.3); margin-top: 0.15rem;
         }
 
-        .gpu-box.teacher {
-            border-color: var(--primary);
-            box-shadow: 0 0 30px rgba(0, 245, 255, 0.1);
+        /* ── Pipeline ── */
+        .pipeline {
+            display: flex; flex-direction: column; gap: 0;
+            max-width: 900px; margin: 0 auto;
         }
-
-        .gpu-box.student {
-            border-color: var(--secondary);
-            box-shadow: 0 0 30px rgba(191, 0, 255, 0.1);
+        .pipeline-step {
+            display: grid; grid-template-columns: 60px 1fr;
+            gap: 1.5rem; position: relative;
         }
-
-        .arrow-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .arrow {
-            width: 60px;
-            height: 2px;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            position: relative;
-        }
-
-        .arrow::after {
-            content: '';
-            position: absolute;
-            right: -10px;
-            top: -4px;
-            border: 5px solid transparent;
-            border-left-color: var(--secondary);
-        }
-
-        /* Tech Stack */
-        .tech-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .tech-card {
-            text-align: center;
-            padding: 2rem;
-        }
-
-        .tech-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            display: block;
-        }
-
-        .tech-card h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.1rem;
-            margin-bottom: 0.5rem;
-            color: var(--primary);
-        }
-
-        .tech-card p {
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        /* Hardware Specs */
-        .specs-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .spec-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 1.5rem;
-        }
-
-        .spec-icon {
-            font-size: 2rem;
-            color: var(--primary);
-        }
-
-        .spec-info h4 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.9rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .spec-info p {
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 0.85rem;
-        }
-
-        /* Experiments */
-        .experiments-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .experiment-card {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .experiment-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-        }
-
-        .experiment-card h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1.3rem;
-            margin-bottom: 1rem;
-            color: var(--primary);
-        }
-
-        .experiment-card ul {
-            list-style: none;
-            margin-top: 1rem;
-        }
-
-        .experiment-card li {
-            padding: 0.5rem 0;
-            border-bottom: 1px solid var(--glass-border);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .experiment-card li::before {
-            content: '>';
-            color: var(--primary);
-            font-family: monospace;
-        }
-
-        /* Timeline */
-        .timeline {
-            max-width: 800px;
-            margin: 0 auto;
-            position: relative;
-        }
-
-        .timeline::before {
-            content: '';
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
+        .pipeline-step:not(:last-child) .step-line {
+            position: absolute; left: 30px; top: 60px; bottom: -1px;
             width: 2px;
-            height: 100%;
             background: linear-gradient(180deg, var(--primary), var(--secondary));
         }
+        .step-num {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: var(--glass); border: 2px solid var(--primary);
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Orbitron', sans-serif; font-size: 1.1rem; font-weight: 700;
+            color: var(--primary); flex-shrink: 0;
+            box-shadow: 0 0 20px rgba(0,245,255,0.2);
+        }
+        .step-body { padding-bottom: 2.5rem; }
+        .step-body h3 {
+            font-family: 'Orbitron', sans-serif; font-size: 1.1rem;
+            color: var(--primary); margin-bottom: 0.6rem;
+            display: flex; align-items: center; gap: 0.8rem;
+        }
+        .step-body p { color: rgba(255,255,255,0.65); font-size: 0.92rem; margin-bottom: 0.6rem; }
+        .step-body .insight {
+            background: rgba(0,245,255,0.05); border-left: 3px solid var(--primary);
+            padding: 0.6rem 1rem; border-radius: 0 8px 8px 0;
+            font-size: 0.82rem; color: rgba(255,255,255,0.55);
+            font-family: 'JetBrains Mono', monospace; margin-top: 0.6rem;
+        }
+        .step-body .warning {
+            background: rgba(255,136,0,0.07); border-left: 3px solid var(--orange);
+            padding: 0.6rem 1rem; border-radius: 0 8px 8px 0;
+            font-size: 0.82rem; color: rgba(255,200,100,0.8);
+            margin-top: 0.6rem;
+        }
 
-        .timeline-item {
-            display: flex;
-            justify-content: flex-end;
-            padding-right: 50%;
+        /* ── Architecture ── */
+        .architecture {
+            background: linear-gradient(180deg, transparent, rgba(0,245,255,0.02), transparent);
+        }
+        .arch-diagram { max-width: 1000px; margin: 0 auto; }
+        .gpu-container {
+            display: grid; grid-template-columns: 1fr auto 1fr;
+            gap: 2rem; align-items: center; margin-bottom: 2rem;
+        }
+        .gpu-box {
+            border-radius: 15px; padding: 2rem; text-align: center;
+            background: var(--glass); border: 1px solid var(--glass-border);
+        }
+        .gpu-box h3 { font-family: 'Orbitron', sans-serif; margin-bottom: 1rem; font-size: 0.95rem; }
+        .gpu-box.teacher { border-color: var(--primary); box-shadow: 0 0 30px rgba(0,245,255,0.08); }
+        .gpu-box.teacher h3 { color: var(--primary); }
+        .gpu-box.student { border-color: var(--secondary); box-shadow: 0 0 30px rgba(191,0,255,0.08); }
+        .gpu-box.student h3 { color: #d070ff; }
+        .gpu-box p { font-size: 0.82rem; color: rgba(255,255,255,0.55); margin: 0.25rem 0; }
+        .gpu-mem {
+            margin-top: 1rem; padding: 0.5rem; border-radius: 8px;
+            background: rgba(0,0,0,0.3); font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; color: rgba(255,255,255,0.4);
+        }
+        .arrow-container { display: flex; flex-direction: column; align-items: center; gap: 0.8rem; }
+        .arrow {
+            width: 60px; height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
             position: relative;
-            margin-bottom: 3rem;
+        }
+        .arrow::after {
+            content: ''; position: absolute; right: -8px; top: -4px;
+            border: 5px solid transparent; border-left-color: var(--secondary);
+        }
+        .arrow-label { color: rgba(255,255,255,0.4); font-size: 0.72rem; text-align: center; }
+
+        .arch-note {
+            max-width: 1000px; margin: 1.5rem auto 0;
+            background: rgba(255,136,0,0.06); border: 1px solid rgba(255,136,0,0.2);
+            border-radius: 10px; padding: 1rem 1.5rem;
+            font-size: 0.83rem; color: rgba(255,200,100,0.75);
+            display: flex; align-items: flex-start; gap: 0.8rem;
+        }
+        .arch-note span { flex-shrink: 0; font-size: 1rem; }
+
+        /* ── Results Table ── */
+        .runs-table { width: 100%; border-collapse: collapse; max-width: 900px; margin: 0 auto; }
+        .runs-table th {
+            font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 600;
+            color: var(--primary); text-align: left; padding: 0.8rem 1.2rem;
+            border-bottom: 1px solid rgba(0,245,255,0.2);
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .runs-table td {
+            padding: 0.9rem 1.2rem; font-size: 0.88rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.75);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .runs-table tr:hover td { background: rgba(0,245,255,0.03); }
+        .val-good { color: var(--green); }
+        .val-base { color: rgba(255,255,255,0.45); }
+
+        /* ── Tech Grid ── */
+        .tech-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem; max-width: 1200px; margin: 0 auto;
+        }
+        .tech-card { text-align: center; padding: 2rem; }
+        .tech-icon { font-size: 2.5rem; margin-bottom: 0.8rem; display: block; }
+        .tech-card h3 { font-family: 'Orbitron', sans-serif; font-size: 0.95rem; margin-bottom: 0.5rem; color: var(--primary); }
+        .tech-card p { font-size: 0.85rem; color: rgba(255,255,255,0.55); }
+
+        /* ── Fixes / Insights ── */
+        .fixes-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem; max-width: 1200px; margin: 0 auto;
+        }
+        .fix-card { padding: 1.5rem; }
+        .fix-card .fix-title {
+            font-family: 'Orbitron', sans-serif; font-size: 0.9rem;
+            color: var(--green); margin-bottom: 0.5rem;
+            display: flex; align-items: center; gap: 0.6rem;
+        }
+        .fix-card .fix-title .badge {
+            font-size: 0.65rem; padding: 0.15rem 0.5rem;
+            background: rgba(0,255,136,0.12); border-radius: 4px;
+            color: var(--green); text-transform: uppercase;
+        }
+        .fix-card p { font-size: 0.85rem; color: rgba(255,255,255,0.55); }
+        .fix-card code {
+            display: block; margin-top: 0.6rem;
+            background: rgba(0,0,0,0.4); border-radius: 6px;
+            padding: 0.6rem 0.9rem; font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem; color: rgba(0,245,255,0.7);
+            border-left: 2px solid rgba(0,245,255,0.3);
+            white-space: pre-wrap; word-break: break-all;
         }
 
-        .timeline-item:nth-child(even) {
-            justify-content: flex-start;
-            padding-right: 0;
-            padding-left: 50%;
+        /* ── Hardware Specs ── */
+        .specs-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem; max-width: 1000px; margin: 0 auto;
+        }
+        .spec-item { display: flex; align-items: center; gap: 1rem; padding: 1.5rem; }
+        .spec-icon { font-size: 2rem; color: var(--primary); }
+        .spec-info h4 { font-family: 'Orbitron', sans-serif; font-size: 0.85rem; margin-bottom: 0.25rem; }
+        .spec-info p { color: rgba(255,255,255,0.55); font-size: 0.82rem; }
+
+        /* ── Roadmap ── */
+        .roadmap-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem; max-width: 1200px; margin: 0 auto 3rem;
+        }
+        .roadmap-card { padding: 1.8rem; }
+        .roadmap-card .phase {
+            font-family: 'Orbitron', sans-serif; font-size: 0.7rem;
+            color: rgba(255,255,255,0.3); text-transform: uppercase;
+            letter-spacing: 0.08em; margin-bottom: 0.4rem;
+        }
+        .roadmap-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; margin-bottom: 0.8rem; }
+        .roadmap-card h3.done { color: var(--green); }
+        .roadmap-card h3.wip  { color: var(--orange); }
+        .roadmap-card h3.next { color: #d070ff; }
+        .roadmap-card ul { list-style: none; }
+        .roadmap-card li {
+            padding: 0.35rem 0; font-size: 0.85rem;
+            color: rgba(255,255,255,0.55);
+            display: flex; align-items: flex-start; gap: 0.5rem;
+        }
+        .roadmap-card li::before { content: '›'; color: inherit; flex-shrink: 0; }
+        .roadmap-card li.done { color: rgba(0,255,136,0.75); }
+        .roadmap-card li.done::before { content: '✓'; }
+        .roadmap-card li.wip  { color: rgba(255,180,80,0.8); }
+        .roadmap-card li.wip::before  { content: '⟳'; }
+
+        /* ── Next Steps ── */
+        .next-steps-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.5rem; max-width: 1200px; margin: 0 auto;
+        }
+        .next-card { padding: 1.8rem; }
+        .next-card .priority {
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+            margin-bottom: 0.6rem;
+        }
+        .next-card h3 { font-family: 'Orbitron', sans-serif; font-size: 1rem; color: #d070ff; margin-bottom: 0.7rem; }
+        .next-card p { font-size: 0.85rem; color: rgba(255,255,255,0.55); }
+        .next-card .impact {
+            margin-top: 1rem; font-size: 0.78rem;
+            color: rgba(0,245,255,0.6);
+            font-family: 'JetBrains Mono', monospace;
         }
 
-        .timeline-content {
-            max-width: 350px;
-            padding: 1.5rem;
+        /* ── Status legend ── */
+        .status-grid { display: flex; justify-content: center; gap: 2.5rem; flex-wrap: wrap; margin-top: 2.5rem; }
+        .status-item { text-align: center; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; }
+        .status-dot {
+            width: 10px; height: 10px; border-radius: 50%;
+            display: inline-block; animation: statusPulse 2s ease-in-out infinite;
         }
+        .status-dot.active { background: var(--green); box-shadow: 0 0 10px var(--green); }
+        .status-dot.wip    { background: var(--orange); box-shadow: 0 0 10px var(--orange); }
+        .status-dot.next   { background: #d070ff; box-shadow: 0 0 10px #d070ff; }
+        @keyframes statusPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-        .timeline-dot {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 16px;
-            height: 16px;
-            background: var(--primary);
-            border-radius: 50%;
-            box-shadow: 0 0 20px var(--primary);
-        }
+        /* ── Footer ── */
+        footer { padding: 4rem 5% 2rem; border-top: 1px solid var(--glass-border); text-align: center; }
+        .footer-links { display: flex; justify-content: center; gap: 2rem; margin-bottom: 2rem; flex-wrap: wrap; }
+        .footer-links a { color: rgba(255,255,255,0.5); text-decoration: none; transition: color 0.3s ease; font-size: 0.88rem; }
+        .footer-links a:hover { color: var(--primary); }
+        .footer-copyright { color: rgba(255,255,255,0.3); font-size: 0.82rem; }
 
-        .timeline-content h3 {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1rem;
-            color: var(--primary);
-            margin-bottom: 0.5rem;
-        }
-
-        .timeline-content p {
-            font-size: 0.9rem;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        /* Status Indicators */
-        .status-grid {
-            display: flex;
-            justify-content: center;
-            gap: 3rem;
-            flex-wrap: wrap;
-            margin-top: 3rem;
-        }
-
-        .status-item {
-            text-align: center;
-        }
-
-        .status-indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 0.5rem;
-            animation: statusPulse 2s ease-in-out infinite;
-        }
-
-        .status-indicator.active {
-            background: #00ff88;
-            box-shadow: 0 0 10px #00ff88;
-        }
-
-        .status-indicator.development {
-            background: #ffaa00;
-            box-shadow: 0 0 10px #ffaa00;
-        }
-
-        .status-indicator.planned {
-            background: #888;
-        }
-
-        @keyframes statusPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Footer */
-        footer {
-            padding: 4rem 5% 2rem;
-            border-top: 1px solid var(--glass-border);
-            text-align: center;
-        }
-
-        .footer-links {
-            display: flex;
-            justify-content: center;
-            gap: 2rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .footer-links a {
-            color: rgba(255, 255, 255, 0.6);
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .footer-links a:hover {
-            color: var(--primary);
-        }
-
-        .footer-copyright {
-            color: rgba(255, 255, 255, 0.4);
-            font-size: 0.85rem;
-        }
-
-        /* Responsive */
+        /* ── Responsive ── */
         @media (max-width: 768px) {
-            nav {
-                display: none;
-            }
-
-            .gpu-container {
-                grid-template-columns: 1fr;
-            }
-
-            .arrow-container {
-                transform: rotate(90deg);
-            }
-
-            .timeline::before {
-                left: 20px;
-            }
-
-            .timeline-item,
-            .timeline-item:nth-child(even) {
-                padding-left: 60px;
-                padding-right: 0;
-                justify-content: flex-start;
-            }
-
-            .timeline-dot {
-                left: 20px;
-            }
-
-            .experiments-grid {
-                grid-template-columns: 1fr;
-            }
+            nav { display: none; }
+            .gpu-container { grid-template-columns: 1fr; }
+            .arrow-container { transform: rotate(90deg); }
         }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--darker);
-        }
-
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--darker); }
         ::-webkit-scrollbar-thumb {
             background: linear-gradient(180deg, var(--primary), var(--secondary));
-            border-radius: 4px;
+            border-radius: 3px;
         }
     </style>
 </head>
 <body>
-    <!-- Background Animation -->
     <div class="bg-animation"></div>
-
-    <!-- Neural Network Background -->
     <div class="neural-bg" id="neuralBg"></div>
-
-    <!-- DNA Helix -->
-    <div class="dna-helix">
-        <div class="dna-strand" id="dnaStrand"></div>
-    </div>
 
     <!-- Header -->
     <header>
         <div class="logo">GENESIS</div>
         <nav>
+            <a href="#pipeline">Pipeline</a>
             <a href="#architecture">Architecture</a>
-            <a href="#tech">Technology</a>
-            <a href="#experiments">Experiments</a>
+            <a href="#results">Results</a>
+            <a href="#fixes">Internals</a>
             <a href="#roadmap">Roadmap</a>
+            <a href="#next">Next Steps</a>
             <a href="https://github.com/genesis-ai/genesis">GitHub</a>
         </nav>
     </header>
 
-    <!-- Hero Section -->
+    <!-- Hero -->
     <section class="hero">
         <div class="hero-content">
             <h1><span>AI Evolution Laboratory</span></h1>
-            <p>Harness the power of evolutionary algorithms, knowledge distillation, and neural pruning to create efficient AI models. Dual-GPU accelerated optimization for the next generation of machine learning.</p>
+            <p>Evolutionary optimization of language model LoRA adapters through knowledge distillation,
+            genetic crossover, and tournament selection — achieving measurable perplexity reduction
+            on a 1.7B-parameter student model.</p>
+
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="val">−48%</div>
+                    <div class="lbl">Perplexity Reduction</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="val">154→80</div>
+                    <div class="lbl">PPL (Base → Evolved)</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="val">0.0123</div>
+                    <div class="lbl">Best Fitness Score</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="val">20</div>
+                    <div class="lbl">Evolution Generations</div>
+                </div>
+            </div>
+
             <div class="cta-buttons">
-                <a href="#" class="btn btn-primary">Get Started</a>
-                <a href="docs/index.md" class="btn btn-secondary">Documentation</a>
+                <a href="#pipeline" class="btn btn-primary">How It Works</a>
+                <a href="#results" class="btn btn-secondary">View Results</a>
             </div>
         </div>
     </section>
 
-    <!-- Architecture Section -->
+    <!-- Results Banner -->
+    <div class="results-banner">
+        <div class="results-grid">
+            <div class="result-item">
+                <div class="number">Qwen3-1.7B</div>
+                <div class="label">Student Model</div>
+                <div class="sub">LoRA r=16, α=32</div>
+            </div>
+            <div class="result-item">
+                <div class="number">qwen3.5</div>
+                <div class="label">Teacher via Ollama</div>
+                <div class="sub">Remote API, hard-label CE</div>
+            </div>
+            <div class="result-item">
+                <div class="number">200</div>
+                <div class="label">Distillation Steps</div>
+                <div class="sub">Best eval loss 4.6465</div>
+            </div>
+            <div class="result-item">
+                <div class="number">6</div>
+                <div class="label">Population Size</div>
+                <div class="sub">Elite 2, mutation 30%</div>
+            </div>
+            <div class="result-item">
+                <div class="number">25 MB</div>
+                <div class="label">Adapter Size</div>
+                <div class="sub">q/k/v/o_proj, float32</div>
+            </div>
+            <div class="result-item">
+                <div class="number">~80 PPL</div>
+                <div class="label">Best Evolved PPL</div>
+                <div class="sub">vs 154 base model</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pipeline -->
+    <section id="pipeline">
+        <div class="section-header">
+            <h2>How It Works</h2>
+            <p>A two-phase training pipeline: knowledge distillation seeds the population,
+            then evolutionary algorithms refine LoRA adapter weights across generations.</p>
+        </div>
+
+        <div class="pipeline">
+
+            <div class="pipeline-step">
+                <div class="step-line"></div>
+                <div class="step-num">1</div>
+                <div class="step-body glass-card">
+                    <h3>Teacher Setup <span class="tag tag-done">Done</span></h3>
+                    <p>An <strong>OllamaTeacher</strong> connects to a remote Ollama server and probes
+                    whether the endpoint supports per-token logprobs. If supported, full soft-target
+                    Knowledge Distillation (KL divergence + cross-entropy) is used. If not — as is
+                    currently the case with Ollama's <code>/v1/completions</code> API — the trainer
+                    automatically falls back to hard-label cross-entropy only.</p>
+                    <div class="warning">
+                        ⚠ Ollama's API returns <code>top_logprobs entries: 0</code> regardless of the
+                        <code>logprobs=True</code> parameter. Without logprobs, soft targets are all uniform
+                        — training toward them actively corrupts the student. The fallback is mandatory, not optional.
+                    </div>
+                    <div class="insight">logprobs probe → NOT SUPPORTED → hard-label CE only</div>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="step-line"></div>
+                <div class="step-num">2</div>
+                <div class="step-body glass-card">
+                    <h3>Knowledge Distillation <span class="tag tag-done">Done</span></h3>
+                    <p>The student (<strong>Qwen3-1.7B + LoRA</strong>) trains against teacher completions
+                    using hard-label cross-entropy. Labels are masked at padding positions
+                    (<code>-100</code>) so the model is never penalized for pad tokens. Gradient
+                    accumulation (×4), cosine LR decay with linear warmup, and BF16 mixed precision
+                    keep memory usage manageable on a single 32 GB GPU.</p>
+                    <div class="insight">200 steps · lr=2e-5 · warmup=20 · eval every 40 steps → best eval loss: 4.6465</div>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="step-line"></div>
+                <div class="step-num">3</div>
+                <div class="step-body glass-card">
+                    <h3>Population Initialization <span class="tag tag-done">Done</span></h3>
+                    <p>After distillation, a <strong>Population</strong> of N individuals is created.
+                    Individual 0 copies the distilled LoRA weights exactly. Individuals 1…N-1 are
+                    Gaussian-mutated variants. All LoRA A/B tensors are kept on <strong>CPU</strong>
+                    throughout evolution — only moved to GPU for fitness evaluation — preventing OOM
+                    when handling large populations.</p>
+                    <div class="insight">population size=6 · elite=2 · mutation_scale=0.05 · mutation_rate=0.3</div>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="step-line"></div>
+                <div class="step-num">4</div>
+                <div class="step-body glass-card">
+                    <h3>Fitness Evaluation <span class="tag tag-done">Done</span></h3>
+                    <p>Each individual's LoRA weights are injected into the base model and evaluated
+                    on a held-out WikiText-2 slice. <strong>Fitness = 1 / (1 + PPL)</strong> — higher
+                    is better. Adapter loading uses CPU-first allocation
+                    (<code>safetensors → CPU → GPU</code>) to avoid OOM on GPUs partially occupied by
+                    Ollama. Keys are remapped from PEFT's saved format
+                    (<code>lora_A.weight</code>) to the runtime format
+                    (<code>lora_A.default.weight</code>).</p>
+                    <div class="insight">fitness = 1/(1+ppl) · best: 0.0123 → ppl ≈ 80.3</div>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="step-line"></div>
+                <div class="step-num">5</div>
+                <div class="step-body glass-card">
+                    <h3>Genetic Evolution <span class="tag tag-done">Done</span></h3>
+                    <p>Tournament selection picks parents; <strong>arithmetic crossover</strong> blends
+                    their LoRA A/B weight tensors; Gaussian noise mutation injects variation.
+                    Elite individuals (top-2) pass unchanged to the next generation. All crossover and
+                    mutation operations run on CPU tensors to avoid GPU fragmentation during the long
+                    evolutionary loop.</p>
+                    <div class="insight">tournament_k=3 · crossover(α=0.5) · mutate(σ=0.05, p=0.3) · 20 generations</div>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="step-num">6</div>
+                <div class="step-body glass-card">
+                    <h3>Checkpoint & Evaluation <span class="tag tag-done">Done</span></h3>
+                    <p>The best evolved individual's weights are saved as <code>checkpoint-final</code>
+                    (the best <em>evolved</em> adapter). The best distillation checkpoint
+                    (lowest eval loss, mid-training) is saved separately as <code>checkpoint-best</code>.
+                    <code>test_evolved_model.py</code> loads both, compares PPL / CE loss / fitness against
+                    the base model, and prints a side-by-side generation comparison across five prompts.</p>
+                    <div class="insight">checkpoint-final &gt; checkpoint-best priority · verdict: PASS if evo_ppl ≤ base_ppl</div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Architecture -->
     <section class="architecture" id="architecture">
         <div class="section-header">
-            <h2>Dual-GPU Architecture</h2>
-            <p>Optimized for parallel processing with dedicated GPUs for teacher and student models</p>
+            <h2>GPU Architecture</h2>
+            <p>Designed for dual-GPU setups, with Ollama-backed teacher and student split across devices</p>
         </div>
 
         <div class="arch-diagram">
             <div class="gpu-container">
                 <div class="gpu-box teacher glass-card">
-                    <h3>GPU 0 - Teacher</h3>
-                    <p>Large pre-trained model</p>
-                    <p>Inference only (frozen)</p>
-                    <p>Provides soft targets</p>
+                    <h3>GPU 0 — Teacher (Ollama)</h3>
+                    <p>Remote qwen3.5 via Ollama API</p>
+                    <p>Inference only · frozen weights</p>
+                    <p>Hard-label CE completions</p>
+                    <p>No logprobs (API limitation)</p>
+                    <div class="gpu-mem">~26 GB VRAM used by Ollama</div>
                 </div>
 
                 <div class="arrow-container">
                     <div class="arrow"></div>
-                    <span style="color: var(--primary); font-size: 0.8rem;">Knowledge Transfer</span>
+                    <div class="arrow-label">Completions<br>(text tokens)</div>
                     <div class="arrow"></div>
                 </div>
 
                 <div class="gpu-box student glass-card">
-                    <h3>GPU 1 - Student</h3>
-                    <p>Evolved model variants</p>
-                    <p>LoRA fine-tuning</p>
-                    <p>Genetic optimization</p>
+                    <h3>GPU 1 — Student</h3>
+                    <p>Qwen3-1.7B + LoRA (r=16)</p>
+                    <p>Distillation training · BF16</p>
+                    <p>Evolution fitness eval</p>
+                    <p>CPU ↔ GPU adapter swaps</p>
+                    <div class="gpu-mem">~7 GB peak during training</div>
+                </div>
+            </div>
+
+            <div class="arch-note">
+                <span>⚠</span>
+                <div>
+                    <strong>Current Limitation:</strong> The teacher runs via Ollama's HTTP API rather than
+                    directly on GPU 0. Ollama occupies ~26 GB on GPU 0, leaving ~5.5 GB free.
+                    The student runs entirely on GPU 1 (32 GB). Evolution population weights live
+                    on CPU between evaluations to avoid fragmentation.
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Tech Stack Section -->
+    <!-- Results -->
+    <section id="results">
+        <div class="section-header">
+            <h2>Training Results</h2>
+            <p>Measured on WikiText-2 held-out set · evaluated with test_evolved_model.py</p>
+        </div>
+
+        <div style="max-width:900px;margin:0 auto 3rem;">
+            <table class="runs-table">
+                <thead>
+                    <tr>
+                        <th>Run</th>
+                        <th>Steps</th>
+                        <th>Gens / Pop</th>
+                        <th>Base PPL</th>
+                        <th>Evolved PPL</th>
+                        <th>ΔPPL</th>
+                        <th>Fitness</th>
+                        <th>Verdict</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>run_20260224_100235</td>
+                        <td>100</td>
+                        <td>10 / 4</td>
+                        <td class="val-base">154.34</td>
+                        <td class="val-good">120.72</td>
+                        <td class="val-good">−33.6</td>
+                        <td class="val-good">0.00821</td>
+                        <td class="val-good">PASS</td>
+                    </tr>
+                    <tr>
+                        <td>run_20260224_131506</td>
+                        <td>200</td>
+                        <td>20 / 6</td>
+                        <td class="val-base">154.34</td>
+                        <td class="val-good">80.28</td>
+                        <td class="val-good">−74.1</td>
+                        <td class="val-good">0.01230</td>
+                        <td class="val-good">PASS</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section-header" style="margin-top:3rem;">
+            <h2>Generation Quality</h2>
+            <p>Qualitative comparison — base vs evolved on 5 prompts (greedy decode, 60 tokens)</p>
+        </div>
+
+        <div class="fixes-grid">
+            <div class="fix-card glass-card">
+                <div class="fix-title">AI History prompt</div>
+                <p><strong>Base:</strong> "The first artificial intelligence systems were developed in the 1950s, and the first AI systems were developed by John McCarthy…" (repetition)</p>
+                <p style="margin-top:0.6rem"><strong>Evolved:</strong> "The first such attempts were made in the 1940s, when researchers like Alan Turing and others began to explore the possibility of machines…" (coherent, accurate)</p>
+            </div>
+            <div class="fix-card glass-card">
+                <div class="fix-title">Amazon prompt</div>
+                <p><strong>Base:</strong> "a major source of oxygen… home to a large number of species" (vague)</p>
+                <p style="margin-top:0.6rem"><strong>Evolved:</strong> "home to an incredible variety of species, including over 4000 species of plants, 1000 species of birds, 1000 species of mammals" (specific, factual)</p>
+            </div>
+            <div class="fix-card glass-card">
+                <div class="fix-title">Neural networks prompt</div>
+                <p><strong>Base:</strong> "understand the underlying principles… the structure of the network, the role of each component" (generic)</p>
+                <p style="margin-top:0.6rem"><strong>Evolved:</strong> "understanding the structure of the network, the role of each layer, and the importance of data preprocessing" (more precise, layer-specific)</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Bug Fixes / Internals -->
+    <section id="fixes">
+        <div class="section-header">
+            <h2>Internals &amp; Bug Fixes</h2>
+            <p>Key discoveries, root causes, and the fixes that made results possible</p>
+        </div>
+
+        <div class="fixes-grid">
+            <div class="fix-card glass-card">
+                <div class="fix-title">
+                    <span>1</span> Uniform Soft Targets Corruption
+                    <span class="badge">Critical</span>
+                </div>
+                <p>Ollama returns empty logprobs. KL divergence against uniform soft targets
+                is always <code>T² × seq_len × log(vocab)</code> — a large, constant positive value
+                that actively pushes the student toward uniform predictions, destroying PPL.</p>
+                <code>fix: probe logprobs at load time → fall back to hard-label CE only
+if teacher_outputs["has_logprobs"] is False</code>
+            </div>
+
+            <div class="fix-card glass-card">
+                <div class="fix-title">
+                    <span>2</span> Eval Never Fired
+                    <span class="badge">Critical</span>
+                </div>
+                <p><code>eval_steps=100</code> default with only 20 training steps meant evaluation
+                never ran, so <code>best_eval_loss</code> stayed at <code>inf</code> and
+                <code>checkpoint-best</code> was never saved.</p>
+                <code>fix: eval_steps = max(1, args.steps // 5)</code>
+            </div>
+
+            <div class="fix-card glass-card">
+                <div class="fix-title">
+                    <span>3</span> Padding Tokens in Loss
+                    <span class="badge">Bug</span>
+                </div>
+                <p>Labels included padding token IDs, causing the model to learn to predict
+                padding, inflating cross-entropy loss on padded positions.</p>
+                <code>labels[attention_mask == 0] = -100  # mask padding</code>
+            </div>
+
+            <div class="fix-card glass-card">
+                <div class="fix-title">
+                    <span>4</span> PEFT Adapter Key Mismatch
+                    <span class="badge">Bug</span>
+                </div>
+                <p>PEFT saves adapter weights as <code>lora_A.weight</code> but
+                <code>PeftModel.state_dict()</code> uses <code>lora_A.default.weight</code>
+                (adapter name "default" inserted). All 224 tensors were silently ignored — the
+                evolved model was identical to the base model.</p>
+                <code>k.replace("lora_A.weight", "lora_A.default.weight")</code>
+            </div>
+
+            <div class="fix-card glass-card">
+                <div class="fix-title">
+                    <span>5</span> OOM on Adapter Load
+                    <span class="badge">Infrastructure</span>
+                </div>
+                <p><code>PeftModel.from_pretrained()</code> calls
+                <code>safe_load_file(path, device="cuda:1")</code> internally, directly
+                allocating on a GPU already holding ~25 GB of Ollama weights.</p>
+                <code>cpu_weights = load_file(path, device="cpu")
+remapped = {k: v.to(device) for k, v in ...}
+model.load_state_dict(remapped, strict=False)</code>
+            </div>
+
+            <div class="fix-card glass-card">
+                <div class="fix-title">
+                    <span>6</span> Wrong Checkpoint Priority
+                    <span class="badge">Logic</span>
+                </div>
+                <p><code>checkpoint-best</code> saves the lowest <em>distillation</em> eval loss
+                (mid-training). <code>checkpoint-final</code> saves the best <em>evolved</em>
+                individual's LoRA weights. The test script was loading the wrong one first.</p>
+                <code>priority: checkpoint-final &gt; checkpoint-best</code>
+            </div>
+
+            <div class="fix-card glass-card">
+                <div class="fix-title">
+                    <span>7</span> Mixed-Device Population Tensors
+                    <span class="badge">Gotcha</span>
+                </div>
+                <p><code>population.initialize_from_model()</code> copies state_dict — individual 0's
+                tensors are on CUDA. Mutated individuals (1+) land on CPU after
+                <code>torch.randn_like()</code>. Calling <code>population.diversity</code> on a
+                mixed-device population raises <code>RuntimeError</code>.</p>
+                <code>fix: crossover/mutate always clone to CPU first</code>
+            </div>
+
+            <div class="fix-card glass-card">
+                <div class="fix-title">
+                    <span>8</span> Fitness Displays as 0.0000
+                    <span class="badge">Display</span>
+                </div>
+                <p>When PPL &gt; 10,000 (e.g., early in training before any convergence),
+                <code>fitness = 1/(1+10000) ≈ 0.0001</code> rounds to four decimal places as
+                <code>0.0000</code>. Not a bug — just a display artifact of extreme perplexity.</p>
+                <code>fitness = 1/(1+ppl)  # rounds at ppl > 9999</code>
+            </div>
+        </div>
+    </section>
+
+    <!-- Tech Stack -->
     <section id="tech">
         <div class="section-header">
             <h2>Technology Stack</h2>
-            <p>Built on cutting-edge ML frameworks and optimization techniques</p>
+            <p>Built on modern ML frameworks with evolutionary optimization at its core</p>
         </div>
 
         <div class="tech-grid">
             <div class="glass-card tech-card">
                 <span class="tech-icon">🧬</span>
-                <h3>SLERP Crossover</h3>
-                <p>Spherical interpolation for smooth weight blending between model variants</p>
+                <h3>Evolutionary Optimization</h3>
+                <p>Tournament selection, arithmetic crossover, and Gaussian mutation over LoRA A/B weight tensors. Elite preservation keeps top individuals each generation.</p>
             </div>
             <div class="glass-card tech-card">
-                <span class="tech-icon">🎯</span>
+                <span class="tech-icon">🎓</span>
                 <h3>Knowledge Distillation</h3>
-                <p>Transfer knowledge from large teachers to compact students</p>
-            </div>
-            <div class="glass-card tech-card">
-                <span class="tech-icon">✂️</span>
-                <h3>Neural Pruning</h3>
-                <p>Intelligent weight removal with magnitude, gradient, and Taylor methods</p>
+                <p>Hard-label cross-entropy distillation from Ollama-backed teacher. Full KD (KL + CE) ready when a logprobs-capable teacher is available.</p>
             </div>
             <div class="glass-card tech-card">
                 <span class="tech-icon">🔧</span>
-                <h3>LoRA Adapters</h3>
-                <p>Efficient fine-tuning with low-rank adaptation layers</p>
+                <h3>LoRA Adapters (PEFT)</h3>
+                <p>Low-rank adaptation on q/k/v/o_proj with r=16, α=32. Only ~25 MB per individual — enables large population sizes without VRAM explosion.</p>
             </div>
             <div class="glass-card tech-card">
-                <span class="tech-icon">🚀</span>
-                <h3>Mixed Precision</h3>
-                <p>FP16/BF16 training for memory efficiency and speed</p>
+                <span class="tech-icon">⚡</span>
+                <h3>Mixed Precision (BF16)</h3>
+                <p>BF16 autocast during forward/backward with GradScaler for stability. Student weights stored in BF16; LoRA adapter weights in float32.</p>
             </div>
             <div class="glass-card tech-card">
                 <span class="tech-icon">📊</span>
-                <h3>Ray Tune</h3>
-                <p>Distributed hyperparameter optimization at scale</p>
+                <h3>Live Training Monitor</h3>
+                <p>watch_training.py parses the training log in real time and renders a Rich terminal dashboard with distillation loss sparklines, evolution fitness trend, and teacher health.</p>
+            </div>
+            <div class="glass-card tech-card">
+                <span class="tech-icon">🧪</span>
+                <h3>Evolved Model Evaluator</h3>
+                <p>test_evolved_model.py runs perplexity comparison (base vs evolved) on WikiText-2 and a side-by-side generation table across configurable prompts.</p>
             </div>
         </div>
     </section>
 
-    <!-- Hardware Specs -->
+    <!-- Hardware -->
     <section>
         <div class="section-header">
-            <h2>Hardware Requirements</h2>
-            <p>Scalable from single GPU to multi-node clusters</p>
+            <h2>Hardware</h2>
+            <p>Tested configuration and scaling targets</p>
         </div>
-
         <div class="specs-grid">
+            <div class="glass-card spec-item">
+                <span class="spec-icon">🖥</span>
+                <div class="spec-info">
+                    <h4>Tested On</h4>
+                    <p>2× GPU (32 GB each) · GPU 0: Ollama teacher · GPU 1: student training + evolution eval</p>
+                </div>
+            </div>
             <div class="glass-card spec-item">
                 <span class="spec-icon">💻</span>
                 <div class="spec-info">
                     <h4>Minimum</h4>
-                    <p>1x GPU, 16GB VRAM, 32GB RAM</p>
-                </div>
-            </div>
-            <div class="glass-card spec-item">
-                <span class="spec-icon">⚡</span>
-                <div class="spec-info">
-                    <h4>Recommended</h4>
-                    <p>2x GPUs, 24GB+ VRAM each, 64GB RAM</p>
+                    <p>1× GPU 16 GB VRAM · Ollama on separate host or CPU inference · pop-size ≤ 4</p>
                 </div>
             </div>
             <div class="glass-card spec-item">
                 <span class="spec-icon">🔥</span>
                 <div class="spec-info">
                     <h4>Optimal</h4>
-                    <p>2x A100/H100, 40-80GB VRAM, 128GB+ RAM</p>
+                    <p>2× A100/H100 40–80 GB · Local teacher with logprobs · pop-size 16+ · larger models</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Experiments Section -->
-    <section id="experiments">
-        <div class="section-header">
-            <h2>Experiments</h2>
-            <p>Ready-to-run experiments for different domains</p>
-        </div>
-
-        <div class="experiments-grid">
-            <div class="glass-card experiment-card">
-                <h3>Medical LLM Evolution</h3>
-                <p>Evolve specialized medical question-answering models using PubMedQA dataset</p>
-                <ul>
-                    <li>Knowledge distillation from Llama-2-7B</li>
-                    <li>LoRA-based parameter efficient tuning</li>
-                    <li>30% model compression with pruning</li>
-                    <li>Optimized for clinical QA accuracy</li>
-                </ul>
-            </div>
-            <div class="glass-card experiment-card">
-                <h3>TTS Voice Evolution</h3>
-                <p>Evolve TTS style tokens for voice customization and cloning</p>
-                <ul>
-                    <li>Style token genetic optimization</li>
-                    <li>MCD-based fitness evaluation</li>
-                    <li>Multi-speaker voice adaptation</li>
-                    <li>Prosody and emotion control</li>
-                </ul>
-            </div>
-        </div>
-    </section>
-
-    <!-- Roadmap Section -->
+    <!-- Roadmap -->
     <section id="roadmap">
         <div class="section-header">
             <h2>Roadmap</h2>
-            <p>Our journey to revolutionize AI model optimization</p>
+            <p>What's been built, what's in progress, and what's coming next</p>
         </div>
 
-        <div class="timeline">
-            <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="glass-card timeline-content">
-                    <h3>Phase 1: Foundation</h3>
-                    <p>Core evolutionary algorithms, population management, genetic operations</p>
-                </div>
+        <div class="roadmap-grid">
+            <div class="glass-card roadmap-card">
+                <div class="phase">Phase 1</div>
+                <h3 class="done">Foundation ✓</h3>
+                <ul>
+                    <li class="done">Population management (Individual, Population)</li>
+                    <li class="done">Genetic operations (crossover, mutate, tournament selection)</li>
+                    <li class="done">LoRA-only individuals (CPU tensors, 25 MB each)</li>
+                    <li class="done">PerplexityFitness evaluation</li>
+                    <li class="done">Elite preservation across generations</li>
+                </ul>
             </div>
-            <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="glass-card timeline-content">
-                    <h3>Phase 2: Distillation</h3>
-                    <p>Knowledge transfer, dual-GPU support, feature matching</p>
-                </div>
+
+            <div class="glass-card roadmap-card">
+                <div class="phase">Phase 2</div>
+                <h3 class="done">Distillation ✓</h3>
+                <ul>
+                    <li class="done">OllamaTeacher with logprobs probe</li>
+                    <li class="done">Hard-label CE fallback (Ollama no logprobs)</li>
+                    <li class="done">KDLoss (KL + CE, ready for soft targets)</li>
+                    <li class="done">DistillationTrainer with eval, checkpointing</li>
+                    <li class="done">Mixed precision BF16, gradient accumulation</li>
+                    <li class="done">Label masking for padding tokens</li>
+                    <li class="done">watch_training.py live monitor</li>
+                    <li class="done">test_evolved_model.py benchmark script</li>
+                </ul>
             </div>
-            <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="glass-card timeline-content">
-                    <h3>Phase 3: Pruning</h3>
-                    <p>Structured and unstructured pruning, saliency methods</p>
-                </div>
+
+            <div class="glass-card roadmap-card">
+                <div class="phase">Phase 3</div>
+                <h3 class="wip">Soft-Target KD ⟳</h3>
+                <ul>
+                    <li class="done">KDLoss architecture in place</li>
+                    <li class="wip">Enable logprobs via vLLM or local teacher</li>
+                    <li class="wip">Full KL divergence training</li>
+                    <li>Temperature sweep for soft targets</li>
+                    <li>Feature-level distillation (hidden states)</li>
+                </ul>
             </div>
-            <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="glass-card timeline-content">
-                    <h3>Phase 4: TTS</h3>
-                    <p>Voice evolution, style tokens, MCD fitness</p>
-                </div>
+
+            <div class="glass-card roadmap-card">
+                <div class="phase">Phase 4</div>
+                <h3 class="next">Neural Pruning</h3>
+                <ul>
+                    <li>Magnitude-based unstructured pruning</li>
+                    <li>Gradient-based saliency pruning</li>
+                    <li>Structured channel/head pruning</li>
+                    <li>Post-pruning LoRA recovery fine-tuning</li>
+                    <li>Compression ratio vs accuracy trade-off</li>
+                </ul>
             </div>
-            <div class="timeline-item">
-                <div class="timeline-dot"></div>
-                <div class="glass-card timeline-content">
-                    <h3>Phase 5: Scale</h3>
-                    <p>Multi-node distributed evolution, larger models</p>
-                </div>
+
+            <div class="glass-card roadmap-card">
+                <div class="phase">Phase 5</div>
+                <h3 class="next">SLERP Crossover</h3>
+                <ul>
+                    <li>Spherical linear interpolation for weight blending</li>
+                    <li>Geodesic paths on weight manifolds</li>
+                    <li>Compare SLERP vs arithmetic crossover</li>
+                    <li>Adaptive α scheduling across generations</li>
+                </ul>
+            </div>
+
+            <div class="glass-card roadmap-card">
+                <div class="phase">Phase 6</div>
+                <h3 class="next">Scale &amp; Deploy</h3>
+                <ul>
+                    <li>Merge LoRA into base model for deployment</li>
+                    <li>GGUF / AWQ quantization export</li>
+                    <li>Multi-node distributed evolution</li>
+                    <li>Larger student models (7B, 13B)</li>
+                    <li>Domain-specific datasets</li>
+                </ul>
             </div>
         </div>
 
         <div class="status-grid">
-            <div class="status-item">
-                <span class="status-indicator active"></span>
-                <span>Active Development</span>
-            </div>
-            <div class="status-item">
-                <span class="status-indicator development"></span>
-                <span>In Progress</span>
-            </div>
-            <div class="status-item">
-                <span class="status-indicator planned"></span>
-                <span>Planned</span>
-            </div>
+            <div class="status-item"><span class="status-dot active"></span> Completed</div>
+            <div class="status-item"><span class="status-dot wip"></span> In Progress</div>
+            <div class="status-item"><span class="status-dot next"></span> Planned</div>
         </div>
     </section>
 
-    <!-- Future Plans -->
-    <section>
+    <!-- Next Steps -->
+    <section id="next">
         <div class="section-header">
-            <h2>Future Plans</h2>
-            <p>What's coming next for Genesis</p>
+            <h2>Next Steps to Implement</h2>
+            <p>Concrete upcoming improvements, ordered by expected impact</p>
         </div>
 
-        <div class="tech-grid">
-            <div class="glass-card tech-card">
-                <span class="tech-icon">🌐</span>
-                <h3>Multi-Modal Evolution</h3>
-                <p>Evolve vision-language models with cross-modal fitness</p>
+        <div class="next-steps-grid">
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-wip">High Priority</span></div>
+                <h3>Enable Real Soft-Target KD</h3>
+                <p>Deploy a local teacher (vLLM, llama.cpp with logprobs, or Hugging Face inference)
+                that actually returns per-token log-probabilities. Full KL divergence training
+                should significantly accelerate distillation convergence and improve final quality.</p>
+                <div class="impact">expected: faster convergence, lower best eval loss, better generation coherence</div>
             </div>
-            <div class="glass-card tech-card">
-                <span class="tech-icon">🤖</span>
-                <h3>AutoML Integration</h3>
-                <p>Automatic architecture search combined with weight evolution</p>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-wip">High Priority</span></div>
+                <h3>Larger Population &amp; More Generations</h3>
+                <p>Current best run used pop-size=6, 20 generations. The fitness trend
+                (▅▅▅▅▅▇▇▇▇▇) shows evolution was still improving at generation 20. Scaling to
+                pop-size=16 and 50+ generations should find lower perplexity individuals.</p>
+                <div class="impact">pop-size=16, gen=50 → estimated PPL ~65–70</div>
             </div>
-            <div class="glass-card tech-card">
-                <span class="tech-icon">☁️</span>
-                <h3>Cloud Deployment</h3>
-                <p>One-click deployment to major cloud providers</p>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
+                <h3>SLERP Crossover</h3>
+                <p>Replace arithmetic crossover with spherical linear interpolation
+                (<code>slerp(w_a, w_b, α)</code>) on LoRA weight tensors. SLERP
+                follows the geodesic on the unit sphere rather than the chord, potentially
+                producing better-blended children that preserve training dynamics.</p>
+                <div class="impact">expected: smoother fitness landscape, less diversity loss</div>
             </div>
-            <div class="glass-card tech-card">
-                <span class="tech-icon">📱</span>
-                <h3>Edge Optimization</h3>
-                <p>Evolve models specifically for mobile and IoT devices</p>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
+                <h3>Adaptive Mutation Rate</h3>
+                <p>Implement a 1/5th-success rule or CMA-ES-style mutation strength adaptation.
+                When the best fitness stagnates across K generations, increase mutation scale;
+                when fitness improves every generation, tighten it for exploitation.</p>
+                <div class="impact">expected: escape local optima, faster convergence</div>
+            </div>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
+                <h3>Domain-Specific Training Data</h3>
+                <p>Current distillation uses random Ollama completions. Switching to a curated
+                domain corpus (math, code, instruction-following) with teacher completions would
+                specialize the student rather than general language modeling.</p>
+                <div class="impact">targeted fitness → task-specific benchmark improvement</div>
+            </div>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
+                <h3>LoRA → Base Merge &amp; Quantization</h3>
+                <p>After evolution completes, merge the best adapter into the base model weights
+                (<code>model.merge_and_unload()</code>) then export to GGUF or AWQ for
+                deployment. This removes the inference overhead of adapter injection and
+                enables edge/mobile deployment.</p>
+                <div class="impact">adapter overhead: 0 · 4-bit quantized: ~900 MB</div>
+            </div>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-next">Lower Priority</span></div>
+                <h3>Neural Pruning Integration</h3>
+                <p>Add a post-evolution pruning pass: magnitude-pruning on the merged model
+                removes low-salience weights, followed by a short LoRA recovery fine-tune.
+                The genetic framework can then evolve over pruning thresholds as an
+                additional hyperparameter dimension.</p>
+                <div class="impact">target: 20–30% parameter reduction with &lt;2 PPL regression</div>
+            </div>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-next">Lower Priority</span></div>
+                <h3>Multi-Objective Fitness</h3>
+                <p>Current fitness is <code>1/(1+PPL)</code> only. Add secondary objectives:
+                generation speed (tokens/sec), memory footprint, task-specific accuracy
+                (MMLU, HumanEval). Use Pareto-front selection or a weighted scalarization
+                to evolve toward the efficiency-accuracy frontier.</p>
+                <div class="impact">Pareto-optimal models across the speed/quality trade-off</div>
             </div>
         </div>
     </section>
@@ -923,57 +1088,37 @@
     <!-- Footer -->
     <footer>
         <div class="footer-links">
-            <a href="docs/index.md">Documentation</a>
-            <a href="docs/installation.md">Installation</a>
-            <a href="docs/quickstart.md">Quick Start</a>
+            <a href="#pipeline">How It Works</a>
+            <a href="#results">Results</a>
+            <a href="#fixes">Internals</a>
+            <a href="#roadmap">Roadmap</a>
+            <a href="#next">Next Steps</a>
             <a href="https://github.com/genesis-ai/genesis">GitHub</a>
-            <a href="https://github.com/genesis-ai/genesis/issues">Issues</a>
         </div>
-        <p class="footer-copyright">Genesis AI Evolution Laboratory - MIT License</p>
+        <p class="footer-copyright">Genesis AI Evolution Laboratory · MIT License · Qwen3-1.7B student · qwen3.5 teacher</p>
     </footer>
 
     <script>
-        // Generate neural network background
-        function generateNeuralNetwork() {
+        // Neural network background nodes
+        (function() {
             const container = document.getElementById('neuralBg');
-            const numNodes = 30;
-
-            for (let i = 0; i < numNodes; i++) {
+            for (let i = 0; i < 35; i++) {
                 const node = document.createElement('div');
                 node.className = 'neural-node';
                 node.style.left = Math.random() * 100 + '%';
                 node.style.top = Math.random() * 100 + '%';
-                node.style.animationDelay = Math.random() * 2 + 's';
+                node.style.animationDelay = (Math.random() * 3) + 's';
+                node.style.animationDuration = (2 + Math.random() * 2) + 's';
                 container.appendChild(node);
             }
-        }
+        })();
 
-        // Generate DNA helix
-        function generateDNAHelix() {
-            const container = document.getElementById('dnaStrand');
-            const numDots = 20;
-
-            for (let i = 0; i < numDots; i++) {
-                const dot = document.createElement('div');
-                dot.className = 'dna-dot';
-                dot.style.top = (i * 5) + '%';
-                dot.style.animationDelay = (i * 0.1) + 's';
-                container.appendChild(dot);
-            }
-        }
-
-        // Initialize
-        generateNeuralNetwork();
-        generateDNAHelix();
-
-        // Smooth scroll for anchor links
+        // Smooth scroll
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
+            anchor.addEventListener('click', function(e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
-                }
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
             });
         });
     </script>
