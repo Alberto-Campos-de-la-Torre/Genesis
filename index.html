@@ -594,12 +594,14 @@
                 <div class="step-num">5</div>
                 <div class="step-body glass-card">
                     <h3>Genetic Evolution <span class="tag tag-done">Done</span></h3>
-                    <p>Tournament selection picks parents; <strong>arithmetic crossover</strong> blends
-                    their LoRA A/B weight tensors; Gaussian noise mutation injects variation.
-                    Elite individuals (top-2) pass unchanged to the next generation. All crossover and
-                    mutation operations run on CPU tensors to avoid GPU fragmentation during the long
-                    evolutionary loop.</p>
-                    <div class="insight">tournament_k=3 · crossover(α=0.5) · mutate(σ=0.05, p=0.3) · 20 generations</div>
+                    <p>Tournament selection picks parents; <strong>TIES-Merging crossover</strong>
+                    (Yadav et al., 2023) resolves sign interference between LoRA adapters via
+                    Trim → Elect Sign → Disjoint Merge. SLERP is also available as an alternative.
+                    Gaussian mutation injects variation. Elite individuals (top-2) pass unchanged.
+                    <strong>Lamarckian micro-training</strong> runs <code>memetic_steps</code>
+                    gradient steps per individual before evaluation, writing locally-improved
+                    weights back to the genome so descendants inherit the gradient refinement.</p>
+                    <div class="insight">TIES density=0.2 · tournament_k=3 · mutate(σ=0.05, p=0.3) · memetic_steps=0 (configurable) · 20 gen</div>
                 </div>
             </div>
 
@@ -847,33 +849,48 @@ model.load_state_dict(remapped, strict=False)</code>
         <div class="tech-grid">
             <div class="glass-card tech-card">
                 <span class="tech-icon">🧬</span>
-                <h3>Evolutionary Optimization</h3>
-                <p>Tournament selection, arithmetic crossover, and Gaussian mutation over LoRA A/B weight tensors. Elite preservation keeps top individuals each generation.</p>
+                <h3>TIES-Merging Crossover</h3>
+                <p>Academic crossover algorithm (Yadav et al., 2023). Resolves sign interference between LoRA adapters: Trim (keep top-20% by magnitude) → Elect Sign (majority vote) → Disjoint Merge (average only aligned weights). Prevents knowledge destruction in plain averaging.</p>
+            </div>
+            <div class="glass-card tech-card">
+                <span class="tech-icon">🔵</span>
+                <h3>SLERP Crossover</h3>
+                <p>Spherical linear interpolation on LoRA A/B weight tensors. Follows geodesic paths on the weight hypersphere. Antiparallel-safe: LERP fallback when |dot| &gt; 0.9995 prevents division-by-zero NaN. Both TIES and SLERP available via <code>crossover_method</code>.</p>
+            </div>
+            <div class="glass-card tech-card">
+                <span class="tech-icon">🧠</span>
+                <h3>Lamarckian Evolution</h3>
+                <p>Memetic algorithm: each individual runs <code>memetic_steps</code> gradient descent steps before fitness evaluation, then writes the improved weights back to its genome. Descendants inherit learned refinements, combining the global search of evolution with gradient-local exploitation.</p>
             </div>
             <div class="glass-card tech-card">
                 <span class="tech-icon">🎓</span>
-                <h3>Knowledge Distillation</h3>
-                <p>Hard-label cross-entropy distillation from Ollama-backed teacher. Full KD (KL + CE) ready when a logprobs-capable teacher is available.</p>
+                <h3>Top-K KL Distillation</h3>
+                <p>Noise-free KL divergence computed exclusively over the teacher's Top-K non-zero probability tokens. Prevents the student learning "flat noise" across the remaining ~151k vocab positions. Auto-detects sparse teacher tensors; falls back to standard KL for dense teachers.</p>
+            </div>
+            <div class="glass-card tech-card">
+                <span class="tech-icon">⚡</span>
+                <h3>Async Ollama Teacher</h3>
+                <p>AsyncOllamaTeacher fires all texts in a batch as concurrent aiohttp requests, eliminating GPU starvation caused by sequential synchronous HTTP calls. Drop-in replacement for OllamaTeacher with graceful degradation when logprobs are unavailable.</p>
+            </div>
+            <div class="glass-card tech-card">
+                <span class="tech-icon">💎</span>
+                <h3>NVIDIA 2:4 Sparsity</h3>
+                <p>Hardware-accelerated structured sparsity using <code>SparseSemiStructuredTensor</code> (PyTorch ≥ 2.1, Ampere+). Physically compresses base-model linear layers to 2 non-zero per 4 elements — 2× Tensor Core speedup, 50% VRAM reduction. Applied post-training as a deployment step.</p>
             </div>
             <div class="glass-card tech-card">
                 <span class="tech-icon">🔧</span>
                 <h3>LoRA Adapters (PEFT)</h3>
-                <p>Low-rank adaptation on q/k/v/o_proj with r=16, α=32. Only ~25 MB per individual — enables large population sizes without VRAM explosion.</p>
-            </div>
-            <div class="glass-card tech-card">
-                <span class="tech-icon">⚡</span>
-                <h3>Mixed Precision (BF16)</h3>
-                <p>BF16 autocast during forward/backward with GradScaler for stability. Student weights stored in BF16; LoRA adapter weights in float32.</p>
+                <p>Low-rank adaptation on q/k/v/o_proj with r=16, α=32. Only ~25 MB per individual — enables large population sizes without VRAM explosion. CPU-first adapter loading bypasses PEFT's direct-to-GPU allocation that OOMs on shared GPUs.</p>
             </div>
             <div class="glass-card tech-card">
                 <span class="tech-icon">📊</span>
                 <h3>Live Training Monitor</h3>
-                <p>watch_training.py parses the training log in real time and renders a Rich terminal dashboard with distillation loss sparklines, evolution fitness trend, and teacher health.</p>
+                <p>watch_training.py renders a Rich terminal dashboard with distillation loss sparklines, evaluation trend, evolution fitness sparkline, computed PPL, and teacher health — all parsed live from the training log.</p>
             </div>
             <div class="glass-card tech-card">
                 <span class="tech-icon">🧪</span>
                 <h3>Evolved Model Evaluator</h3>
-                <p>test_evolved_model.py runs perplexity comparison (base vs evolved) on WikiText-2 and a side-by-side generation table across configurable prompts.</p>
+                <p>test_evolved_model.py loads checkpoint-final (best evolved) vs base model, compares PPL / CE loss / fitness on WikiText-2, and prints a side-by-side generation table. CPU-first adapter injection with automatic key remapping (lora_A.weight → lora_A.default.weight).</p>
             </div>
         </div>
     </section>
@@ -949,33 +966,37 @@ model.load_state_dict(remapped, strict=False)</code>
                 <h3 class="wip">Soft-Target KD ⟳</h3>
                 <ul>
                     <li class="done">KDLoss architecture in place</li>
+                    <li class="done">Top-K KL divergence (noise-free, mask-based)</li>
+                    <li class="done">Auto-detect sparse vs dense teacher tensors</li>
                     <li class="wip">Enable logprobs via vLLM or local teacher</li>
-                    <li class="wip">Full KL divergence training</li>
-                    <li>Temperature sweep for soft targets</li>
+                    <li>Full KL divergence training end-to-end</li>
                     <li>Feature-level distillation (hidden states)</li>
                 </ul>
             </div>
 
             <div class="glass-card roadmap-card">
                 <div class="phase">Phase 4</div>
-                <h3 class="next">Neural Pruning</h3>
+                <h3 class="done">Lab-Grade Evolution ✓</h3>
                 <ul>
-                    <li>Magnitude-based unstructured pruning</li>
-                    <li>Gradient-based saliency pruning</li>
-                    <li>Structured channel/head pruning</li>
-                    <li>Post-pruning LoRA recovery fine-tuning</li>
-                    <li>Compression ratio vs accuracy trade-off</li>
+                    <li class="done">TIES-Merging crossover (sign-interference-free)</li>
+                    <li class="done">SLERP crossover with antiparallel fix</li>
+                    <li class="done">Lamarckian / memetic micro-training per individual</li>
+                    <li class="done">AsyncOllamaTeacher (concurrent batch requests)</li>
+                    <li class="done">Top-K KL divergence loss (noise-free)</li>
+                    <li class="done">NVIDIA 2:4 semi-structured sparsity (post-training)</li>
                 </ul>
             </div>
 
             <div class="glass-card roadmap-card">
                 <div class="phase">Phase 5</div>
-                <h3 class="next">SLERP Crossover</h3>
+                <h3 class="next">Neural Pruning</h3>
                 <ul>
-                    <li>Spherical linear interpolation for weight blending</li>
-                    <li>Geodesic paths on weight manifolds</li>
-                    <li>Compare SLERP vs arithmetic crossover</li>
-                    <li>Adaptive α scheduling across generations</li>
+                    <li class="done">Magnitude-based unstructured pruning</li>
+                    <li class="done">Gradient-based saliency pruning</li>
+                    <li class="done">Structured channel/head pruning</li>
+                    <li class="done">NVIDIA 2:4 physical compression</li>
+                    <li class="wip">Post-pruning LoRA recovery fine-tuning</li>
+                    <li>Evolve pruning threshold as hyperparameter</li>
                 </ul>
             </div>
 
@@ -983,11 +1004,12 @@ model.load_state_dict(remapped, strict=False)</code>
                 <div class="phase">Phase 6</div>
                 <h3 class="next">Scale &amp; Deploy</h3>
                 <ul>
-                    <li>Merge LoRA into base model for deployment</li>
-                    <li>GGUF / AWQ quantization export</li>
+                    <li>Merge LoRA into base model (<code>merge_and_unload()</code>)</li>
+                    <li>GGUF / AWQ quantization export (~900 MB at 4-bit)</li>
                     <li>Multi-node distributed evolution</li>
                     <li>Larger student models (7B, 13B)</li>
-                    <li>Domain-specific datasets</li>
+                    <li>Domain-specific datasets (code, math, instruction)</li>
+                    <li>Multi-objective fitness (PPL + speed + size)</li>
                 </ul>
             </div>
         </div>
@@ -1009,78 +1031,82 @@ model.load_state_dict(remapped, strict=False)</code>
         <div class="next-steps-grid">
             <div class="glass-card next-card">
                 <div class="priority"><span class="tag tag-wip">High Priority</span></div>
-                <h3>Enable Real Soft-Target KD</h3>
-                <p>Deploy a local teacher (vLLM, llama.cpp with logprobs, or Hugging Face inference)
-                that actually returns per-token log-probabilities. Full KL divergence training
-                should significantly accelerate distillation convergence and improve final quality.</p>
-                <div class="impact">expected: faster convergence, lower best eval loss, better generation coherence</div>
+                <h3>Wire a Logprobs-Capable Teacher</h3>
+                <p>Top-K KL loss and AsyncOllamaTeacher are fully implemented and waiting.
+                The only missing piece is a teacher that returns per-token log-probabilities.
+                Deploy vLLM locally (<code>vllm serve qwen3.5</code>) or use HF
+                <code>AutoModelForCausalLM</code> directly — both return logits.
+                This unlocks the full KL divergence path and the async batch pipeline.</p>
+                <div class="impact">expected: faster convergence, lower eval loss, activates Top-K KL + AsyncTeacher</div>
             </div>
 
             <div class="glass-card next-card">
                 <div class="priority"><span class="tag tag-wip">High Priority</span></div>
-                <h3>Larger Population &amp; More Generations</h3>
-                <p>Current best run used pop-size=6, 20 generations. The fitness trend
-                (▅▅▅▅▅▇▇▇▇▇) shows evolution was still improving at generation 20. Scaling to
-                pop-size=16 and 50+ generations should find lower perplexity individuals.</p>
-                <div class="impact">pop-size=16, gen=50 → estimated PPL ~65–70</div>
+                <h3>Benchmark TIES vs SLERP vs Arithmetic</h3>
+                <p>TIES-Merging is now the default crossover. Run controlled ablations:
+                same training seed, same pop-size and generations, swap only
+                <code>crossover_method</code>. Measure final PPL and fitness diversity
+                to confirm TIES outperforms the previous SLERP and arithmetic baselines.</p>
+                <div class="impact">quantify TIES sign-interference improvement · guide future crossover choice</div>
+            </div>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-wip">High Priority</span></div>
+                <h3>Tune Lamarckian memetic_steps</h3>
+                <p>Lamarckian micro-training is implemented but <code>memetic_steps=0</code>
+                by default (disabled). Run experiments at memetic_steps ∈ {2, 5, 10} to
+                find the sweet spot between per-individual training cost and fitness gain.
+                Expect diminishing returns beyond ~5 steps on a 1.7B model.</p>
+                <div class="impact">memetic_steps=5 estimated: 2–3× fewer generations to same fitness</div>
             </div>
 
             <div class="glass-card next-card">
                 <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
-                <h3>SLERP Crossover</h3>
-                <p>Replace arithmetic crossover with spherical linear interpolation
-                (<code>slerp(w_a, w_b, α)</code>) on LoRA weight tensors. SLERP
-                follows the geodesic on the unit sphere rather than the chord, potentially
-                producing better-blended children that preserve training dynamics.</p>
-                <div class="impact">expected: smoother fitness landscape, less diversity loss</div>
+                <h3>Larger Population &amp; More Generations</h3>
+                <p>Best run: pop-size=6, 20 generations — fitness still improving at gen 20.
+                Scale to pop-size=16, 50+ generations with TIES crossover. TIES should
+                maintain higher diversity than SLERP, making larger populations more effective.</p>
+                <div class="impact">pop-size=16, gen=50 + TIES → estimated PPL ~60–65</div>
+            </div>
+
+            <div class="glass-card next-card">
+                <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
+                <h3>LoRA → Base Merge &amp; 2:4 Deploy</h3>
+                <p>After evolution: <code>model.merge_and_unload()</code> to fold LoRA into
+                base weights, then call <code>pruner.apply_nvidia_2_4_sparsity()</code> for
+                hardware-accelerated 50% VRAM compression on Ampere+ GPUs, then export to
+                GGUF/AWQ for edge deployment.</p>
+                <div class="impact">merged + 2:4 + 4-bit quant → ~450 MB · 2× inference speedup on RTX GPUs</div>
             </div>
 
             <div class="glass-card next-card">
                 <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
                 <h3>Adaptive Mutation Rate</h3>
-                <p>Implement a 1/5th-success rule or CMA-ES-style mutation strength adaptation.
-                When the best fitness stagnates across K generations, increase mutation scale;
-                when fitness improves every generation, tighten it for exploitation.</p>
-                <div class="impact">expected: escape local optima, faster convergence</div>
+                <p>Implement 1/5th-success rule or CMA-ES-style σ adaptation.
+                When fitness stagnates across K generations, increase mutation scale to
+                escape local optima; when improving every generation, tighten σ for
+                exploitation. Complements the existing mutation_decay schedule.</p>
+                <div class="impact">expected: escape plateaus, converge faster in late generations</div>
             </div>
 
             <div class="glass-card next-card">
                 <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
                 <h3>Domain-Specific Training Data</h3>
-                <p>Current distillation uses random Ollama completions. Switching to a curated
-                domain corpus (math, code, instruction-following) with teacher completions would
-                specialize the student rather than general language modeling.</p>
-                <div class="impact">targeted fitness → task-specific benchmark improvement</div>
-            </div>
-
-            <div class="glass-card next-card">
-                <div class="priority"><span class="tag tag-next">Medium Priority</span></div>
-                <h3>LoRA → Base Merge &amp; Quantization</h3>
-                <p>After evolution completes, merge the best adapter into the base model weights
-                (<code>model.merge_and_unload()</code>) then export to GGUF or AWQ for
-                deployment. This removes the inference overhead of adapter injection and
-                enables edge/mobile deployment.</p>
-                <div class="impact">adapter overhead: 0 · 4-bit quantized: ~900 MB</div>
-            </div>
-
-            <div class="glass-card next-card">
-                <div class="priority"><span class="tag tag-next">Lower Priority</span></div>
-                <h3>Neural Pruning Integration</h3>
-                <p>Add a post-evolution pruning pass: magnitude-pruning on the merged model
-                removes low-salience weights, followed by a short LoRA recovery fine-tune.
-                The genetic framework can then evolve over pruning thresholds as an
-                additional hyperparameter dimension.</p>
-                <div class="impact">target: 20–30% parameter reduction with &lt;2 PPL regression</div>
+                <p>Current distillation uses random Ollama completions on generic text.
+                Curated corpora (code, math, instruction-following) with teacher completions
+                would specialize the evolved student for targeted benchmarks rather than
+                general-purpose WikiText PPL.</p>
+                <div class="impact">task-specific fitness → MMLU / HumanEval / GSM8K improvement</div>
             </div>
 
             <div class="glass-card next-card">
                 <div class="priority"><span class="tag tag-next">Lower Priority</span></div>
                 <h3>Multi-Objective Fitness</h3>
-                <p>Current fitness is <code>1/(1+PPL)</code> only. Add secondary objectives:
-                generation speed (tokens/sec), memory footprint, task-specific accuracy
-                (MMLU, HumanEval). Use Pareto-front selection or a weighted scalarization
-                to evolve toward the efficiency-accuracy frontier.</p>
-                <div class="impact">Pareto-optimal models across the speed/quality trade-off</div>
+                <p>Replace scalar <code>1/(1+PPL)</code> with a Pareto-front over
+                (PPL, tokens/sec, VRAM footprint, task accuracy). Tournament selection
+                becomes non-dominated sorting (NSGA-II). Evolve toward the full
+                efficiency-accuracy Pareto frontier instead of a single scalar.</p>
+                <div class="impact">Pareto-optimal family of models across the speed/quality trade-off</div>
             </div>
         </div>
     </section>
