@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GÉNESIS LAB: 8-BIT RESEARCH EDITION</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        MathJax = {
+            tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+            startup: { typeset: false }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --g0: #bf00ff;   /* GPU0 magenta */
+            --g1: #00f5ff;   /* GPU1 cyan    */
+            --cpu: #00ff88;  /* CPU lime     */
+            --alt: #ff0055;  /* alert red    */
+            --gld: #ffd700;  /* gold         */
+            --bg:  #050508;
+            --grd: rgba(0,245,255,0.07);
+        }
+        *{ box-sizing:border-box; }
+        body{
+            font-family:'Press Start 2P',cursive;
+            background:var(--bg); color:#fff;
+            margin:0; height:100vh;
+            display:flex; flex-direction:column; overflow:hidden;
+        }
+        .crt{
+            position:fixed; inset:0;
+            background:
+                linear-gradient(rgba(18,16,16,0) 50%,rgba(0,0,0,.22) 50%),
+                linear-gradient(90deg,rgba(255,0,0,.04),rgba(0,255,0,.02),rgba(0,0,255,.04));
+            background-size:100% 4px, 3px 100%;
+            pointer-events:none; z-index:9999;
+        }
+        .grid-bg{
+            background-image:
+                linear-gradient(var(--grd) 1px,transparent 1px),
+                linear-gradient(90deg,var(--grd) 1px,transparent 1px);
+            background-size:40px 40px;
+        }
+        .mono{ font-family:'JetBrains Mono',monospace; }
+        /* ── health bar ── */
+        .hbar{ height:10px; background:#111; border:1px solid #333; overflow:hidden; }
+        .hbar-fill{ height:100%; background:linear-gradient(90deg,var(--alt),var(--gld),var(--cpu)); transition:width 1.5s ease; }
+        /* ── retro button ── */
+        .btn{
+            background:#0a0a0f; border:3px solid var(--g0); color:var(--g0);
+            box-shadow:inset -3px -3px 0 rgba(0,0,0,.6), 0 0 12px rgba(191,0,255,.25);
+            cursor:pointer; transition:.1s;
+            font-family:'Press Start 2P',cursive;
+        }
+        .btn:active:not(:disabled){ transform:translate(2px,2px); color:var(--g1); border-color:var(--g1); }
+        .btn:disabled{ border-color:#333; color:#444; cursor:not-allowed; box-shadow:none; }
+        /* ── zone label ── */
+        .zone-lbl{ position:absolute; bottom:4px; font-size:7px; opacity:.35; white-space:nowrap; }
+
+        /* ════════════ KEYFRAMES ════════════ */
+        @keyframes brainPulse{
+            0%,100%{ transform:scale(1); filter:brightness(1); }
+            50%{ transform:scale(1.08); filter:brightness(1.4) drop-shadow(0 0 18px var(--g0)); }
+        }
+        @keyframes liquidRise{
+            0%,100%{ height:58%; }
+            50%{ height:64%; }
+        }
+        @keyframes orbShoot{
+            0%{ left:22%; top:42%; opacity:1; transform:scale(1); }
+            100%{ left:72%; top:46%; opacity:0; transform:scale(.3); }
+        }
+        @keyframes trashAway{
+            0%{ opacity:.6; }
+            100%{ transform:translateY(-50px) rotate(40deg); opacity:0; }
+        }
+        @keyframes robotRun{
+            0%{ left:-8%; opacity:1; }
+            80%{ left:68%; opacity:1; }
+            90%{ left:70%; opacity:0; }
+            91%{ left:-10%; opacity:0; }
+            100%{ left:-8%; opacity:1; }
+        }
+        @keyframes mechaIdle{
+            0%,100%{ filter:brightness(.65) hue-rotate(200deg); }
+            50%{ filter:brightness(.75) hue-rotate(200deg); }
+        }
+        @keyframes mechaAwaken{
+            0%{ filter:brightness(.65) hue-rotate(200deg); transform:translateY(0); }
+            60%{ filter:brightness(1.6) hue-rotate(20deg); transform:translateY(-14px); }
+            100%{ filter:brightness(1.2) hue-rotate(0deg); transform:translateY(-22px); }
+        }
+        @keyframes droneHover{
+            0%,100%{ transform:translateY(0) rotate(-2deg); }
+            50%{ transform:translateY(-8px) rotate(2deg); }
+        }
+        @keyframes propSpin{
+            0%{ transform:scaleX(1); }
+            50%{ transform:scaleX(0); }
+            100%{ transform:scaleX(-1); }
+        }
+        @keyframes lockFall{
+            0%{ transform:translateY(-40px); opacity:0; }
+            100%{ transform:translateY(0); opacity:1; }
+        }
+        @keyframes conveyorScroll{
+            0%{ background-position:0 0; }
+            100%{ background-position:-40px 0; }
+        }
+        @keyframes brainSlide{
+            0%{ left:-12%; }
+            100%{ left:112%; }
+        }
+        @keyframes ufoHover{
+            0%,100%{ transform:translateX(-50%) translateY(0); }
+            50%{ transform:translateX(-50%) translateY(-8px); }
+        }
+        @keyframes laserPulse{
+            0%,100%{ height:0; opacity:0; }
+            40%,60%{ height:72px; opacity:1; }
+        }
+        @keyframes glitch{
+            0%{ transform:translate(0); filter:none; }
+            20%{ transform:translate(-3px,2px); filter:hue-rotate(90deg) brightness(1.5); }
+            40%{ transform:translate(3px,-2px); filter:hue-rotate(180deg); }
+            60%{ transform:translate(-2px,-2px); filter:hue-rotate(270deg) brightness(1.5); }
+            80%{ transform:translate(2px,3px); filter:hue-rotate(360deg); }
+            100%{ transform:translate(0); filter:none; }
+        }
+        .glitching{ animation:glitch .35s infinite !important; }
+        @keyframes weightLift{
+            0%,100%{ transform:translateY(0); }
+            50%{ transform:translateY(-18px); }
+        }
+        @keyframes sweatDrop{
+            0%{ opacity:1; top:0; }
+            100%{ opacity:0; top:18px; }
+        }
+        @keyframes rankFlash{
+            0%,100%{ opacity:0; transform:scale(.5) rotate(-8deg); }
+            50%{ opacity:1; transform:scale(1.2) rotate(4deg); }
+        }
+        @keyframes sawSpin{
+            0%{ transform:rotate(0deg); }
+            100%{ transform:rotate(360deg); }
+        }
+        @keyframes magnetBob{
+            0%,100%{ transform:translateX(-50%) translateY(0); }
+            50%{ transform:translateX(-50%) translateY(10px); }
+        }
+        @keyframes fusionFlash{
+            0%{ opacity:0; transform:scale(0); }
+            40%{ opacity:1; transform:scale(1.8); }
+            100%{ opacity:0; transform:scale(.6); }
+        }
+        @keyframes speedLine{
+            0%{ right:-10%; opacity:1; }
+            100%{ right:110%; opacity:0; }
+        }
+        @keyframes deployPulse{
+            0%,100%{ opacity:1; text-shadow:0 0 20px var(--cpu),0 0 40px var(--cpu); }
+            50%{ opacity:.6; text-shadow:0 0 8px var(--cpu); }
+        }
+        @keyframes hwFlash{
+            0%,100%{ background:var(--cpu); color:#000; }
+            50%{ background:#fff; color:#000; }
+        }
+        @keyframes slideInTop{
+            0%{ transform:translateY(-12px); opacity:0; }
+            100%{ transform:translateY(0); opacity:1; }
+        }
+        @keyframes blink{
+            0%,100%{ opacity:1; } 50%{ opacity:0; }
+        }
+        @keyframes auraGlow{
+            0%,100%{ box-shadow:0 0 10px currentColor; }
+            50%{ box-shadow:0 0 35px currentColor, 0 0 70px currentColor; }
+        }
+        @keyframes superBotIdle{
+            0%,100%{ transform:translateY(0) rotate(0deg); filter:brightness(1); }
+            50%{ transform:translateY(-6px) rotate(2deg); filter:brightness(1.4) drop-shadow(0 0 20px var(--gld)); }
+        }
+        @keyframes robotZoom{
+            0%{ left:-15%; transform:scaleX(1); }
+            100%{ left:115%; transform:scaleX(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="crt"></div>
+
+    <!-- ═══════════════════════════════════════════ HUD ═══ -->
+    <header id="hud" class="flex-shrink-0 border-b-4 z-10" style="border-color:var(--g1);">
+        <div class="flex items-center gap-3 px-3 py-2">
+            <div class="flex-shrink-0">
+                <div style="font-size:13px; color:var(--g1); letter-spacing:1px;">GÉNESIS_LAB</div>
+                <div style="font-size:7px; color:var(--g0); margin-top:2px;">NV_DUAL_RTX5090 // RESEARCH TIER</div>
+            </div>
+
+            <div class="flex-grow flex items-center gap-4">
+                <div style="font-size:7px; color:#555;">SYS_HEALTH:</div>
+                <div class="hbar flex-grow" style="max-width:120px;">
+                    <div id="health-fill" class="hbar-fill" style="width:85%"></div>
+                </div>
+                <div style="font-size:7px; display:flex; gap:12px;">
+                    <span style="color:#555;">VRAM:</span><span id="h-vram">48GB</span>
+                    <span style="color:#555;">GEN:</span><span id="h-gen" style="color:var(--cpu);">00</span>
+                    <span style="color:#555;">PPL:</span><span id="h-ppl" style="color:var(--alt);">∞</span>
+                    <span style="color:#555;">FIT:</span><span id="h-fit" style="color:var(--cpu);">0.000</span>
+                </div>
+            </div>
+
+            <div id="stage-lbl" style="font-size:8px; color:var(--gld); min-width:140px; text-align:right; animation:slideInTop .3s ease;">STANDBY</div>
+        </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════════ MAIN ═══ -->
+    <div class="flex flex-grow gap-2 p-2 z-10" style="min-height:0; overflow:hidden;">
+
+        <!-- LEFT: Telemetry -->
+        <div class="flex-shrink-0 flex flex-col gap-2" style="width:148px;">
+            <!-- PPL Chart -->
+            <div class="flex flex-col" style="border:2px solid var(--g0); padding:6px; flex:1;">
+                <div style="font-size:7px; color:var(--g0); margin-bottom:4px;">▼ PERPLEXITY</div>
+                <div id="ppl-chart" class="flex items-end gap-px flex-grow" style="background:#000; border:1px solid #111; padding:3px; min-height:0;"></div>
+                <div style="font-size:5px; color:#444; margin-top:2px; text-align:center;">MUST FALL</div>
+            </div>
+            <!-- Fitness Chart -->
+            <div class="flex flex-col" style="border:2px solid var(--cpu); padding:6px; flex:1;">
+                <div style="font-size:7px; color:var(--cpu); margin-bottom:4px;">▲ FITNESS</div>
+                <div id="fit-chart" class="flex items-end gap-px flex-grow" style="background:#000; border:1px solid #111; padding:3px; min-height:0;"></div>
+                <div style="font-size:5px; color:#444; margin-top:2px; text-align:center;">MUST RISE</div>
+            </div>
+            <!-- Stats box -->
+            <div style="border:2px solid #222; padding:6px; display:flex; flex-direction:column; gap:4px;">
+                <div style="font-size:6px; color:#555; display:flex; justify-content:space-between;"><span>KL_DIV</span><span id="s-kl" style="color:#fff;">--</span></div>
+                <div style="font-size:6px; color:#555; display:flex; justify-content:space-between;"><span>SPARSITY</span><span id="s-sp" style="color:#fff;">0%</span></div>
+                <div style="font-size:6px; color:#555; display:flex; justify-content:space-between;"><span>RANK</span><span id="s-rank" style="color:var(--gld);">--</span></div>
+            </div>
+        </div>
+
+        <!-- CENTER: viewport + console -->
+        <div class="flex flex-col flex-grow gap-2" style="min-width:0; min-height:0;">
+
+            <!-- Viewport -->
+            <div id="viewport" class="flex-shrink-0 grid-bg relative overflow-hidden"
+                 style="height:220px; border:4px solid #555; background:#000;">
+                <!-- Zone guides -->
+                <div style="position:absolute; inset:0; display:flex; pointer-events:none;">
+                    <div style="width:33.3%; border-right:1px dashed #222; position:relative;">
+                        <span class="zone-lbl" style="left:4px;">GPU0: ORACLE</span>
+                    </div>
+                    <div style="width:33.3%; position:relative; display:flex; justify-content:center;">
+                        <span class="zone-lbl">CPU: RAM</span>
+                    </div>
+                    <div style="width:33.4%; border-left:1px dashed #222; position:relative; display:flex; justify-content:flex-end;">
+                        <span class="zone-lbl" style="right:4px;">GPU1: COLISEUM</span>
+                    </div>
+                </div>
+                <div id="sim" style="position:absolute; inset:0;"></div>
+            </div>
+
+            <!-- Console -->
+            <div class="flex flex-col flex-grow mono" style="border:4px solid var(--g0); background:#000; min-height:0;">
+                <div style="border-bottom:1px solid #111; padding:4px 8px; display:flex; justify-content:space-between;">
+                    <span style="font-size:7px; color:var(--g0);">// SCIENTIFIC_CONSOLE v2.4</span>
+                    <span id="con-phase" style="font-size:7px; color:#444;">IDLE</span>
+                </div>
+                <div id="con-wrap" class="flex-grow overflow-y-auto" style="padding:8px; min-height:0;">
+                    <div id="con-out" style="display:flex; flex-direction:column; gap:6px;">
+                        <span style="font-size:11px; color:var(--cpu);">&gt; ROOT_ACCESS GRANTED — PRESS [INIT] TO START.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════ CONTROLS ═══ -->
+    <div class="flex-shrink-0 flex items-center gap-4 px-3 py-2 z-10" style="border-top:3px solid #111;">
+        <button id="go-btn" class="btn" onclick="GM.next()" style="padding:10px 18px; font-size:9px;">INIT SEQUENCE</button>
+        <div style="font-size:7px; color:#444;">PHASE:</div>
+        <div style="display:flex; gap:6px;">
+            <div id="pd0" style="width:12px; height:12px; border:2px solid #333; background:#111;"></div>
+            <div id="pd1" style="width:12px; height:12px; border:2px solid #333; background:#111;"></div>
+            <div id="pd2" style="width:12px; height:12px; border:2px solid #333; background:#111;"></div>
+            <div id="pd3" style="width:12px; height:12px; border:2px solid #333; background:#111;"></div>
+            <div id="pd4" style="width:12px; height:12px; border:2px solid #333; background:#111;"></div>
+            <div id="pd5" style="width:12px; height:12px; border:2px solid #333; background:#111;"></div>
+        </div>
+        <div id="phase-hint" style="font-size:7px; color:#333;">--</div>
+    </div>
+
+<!-- ═══════════════════════════════════ SCRIPT ═══════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ──────────────────────────────────────────────────────────────
+   PIXEL SPRITE ENGINE
+   Each sprite row is a string; each char is a palette key (' '=empty).
+   makeSprite(name,px) returns an HTML string for a properly-sized wrapper.
+─────────────────────────────────────────────────────────────── */
+const SPRITES = {
+    brain:{
+        w:7, rows:[
+            ' MMMMM ',
+            'MMMMMMM',
+            'MPMPMMM',
+            'MMMMMMM',
+            'MPMPMMM',
+            ' MMMMM ',
+            '  M  M ',
+            '  M  M ',
+        ], pal:{ M:'#bf00ff', P:'#e060ff' }
+    },
+    botSmall:{
+        w:4, rows:[
+            ' CC ',
+            'CCCC',
+            ' CC ',
+            'C  C',
+            'C  C',
+        ], pal:{ C:'#00f5ff' }
+    },
+    botElite:{
+        w:6, rows:[
+            ' GGGG ',
+            'GGGGGG',
+            'GLLLGG',
+            'GGGGGG',
+            ' GGGG ',
+            'GGGGGG',
+            'G    G',
+            'G    G',
+        ], pal:{ G:'#00ff88', L:'#fff' }
+    },
+    mecha:{
+        w:7, rows:[
+            '  WWW  ',
+            ' WWWWW ',
+            ' WLLWW ',
+            ' WWWWW ',
+            'WWWWWWW',
+            ' WWWWW ',
+            ' W   W ',
+            ' W   W ',
+            'WW   WW',
+        ], pal:{ W:'#8899bb', L:'#00f5ff' }
+    },
+    superBot:{
+        w:7, rows:[
+            '  GGG  ',
+            ' GGGGG ',
+            ' GLLGG ',
+            ' GGGGG ',
+            'GGGGGGG',
+            ' GGGGG ',
+            ' GGGGG ',
+            ' G   G ',
+            'GG   GG',
+        ], pal:{ G:'#ffd700', L:'#fff' }
+    },
+    ufo:{
+        w:7, rows:[
+            '  PPP  ',
+            ' PPPPP ',
+            'PPPPPPP',
+            ' P P P ',
+        ], pal:{ P:'#bf00ff' }
+    },
+    brainMini:{
+        w:4, rows:[
+            ' MM ',
+            'MMMM',
+            'MMMM',
+            ' MM ',
+        ], pal:{ M:'#00ff88' }
+    },
+    drone:{
+        w:9, rows:[
+            'P  PPP  P',
+            'PPP   PPP',
+            '   PPP   ',
+            '  PPPPP  ',
+        ], pal:{ P:'#00f5ff' }
+    },
+    crown:{
+        w:5, rows:[
+            'G G G',
+            'GGGGG',
+            'GGGGG',
+        ], pal:{ G:'#ffd700' }
+    },
+};
+
+function buildShadow(rows, pal, px){
+    const shadows=[];
+    rows.forEach((row,y)=>{
+        [...row].forEach((ch,x)=>{
+            if(ch!==' ' && pal[ch]) shadows.push(`${x*px}px ${y*px}px 0 0 ${pal[ch]}`);
+        });
+    });
+    return shadows.join(',');
+}
+
+function makeSprite(name, px=4, extra=''){
+    const s=SPRITES[name];
+    const cols=Math.max(...s.rows.map(r=>r.length));
+    const W=cols*px, H=s.rows.length*px;
+    const shadow=buildShadow(s.rows,s.pal,px);
+    return `<div style="position:relative;width:${W}px;height:${H}px;overflow:visible;${extra}">` +
+           `<div style="width:${px}px;height:${px}px;box-shadow:${shadow};"></div></div>`;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   GAME MANAGER
+─────────────────────────────────────────────────────────────── */
+const GM = (() => {
+    let stage = -1;
+    let busy  = false;
+
+    /* Telemetry history (6 slots, one per stage) */
+    const pplHist = [Infinity,154.3,140.1,110.0,80.2,80.2];
+    const fitHist = [0,0.006,0.008,0.010,0.012,0.012];
+
+    /* Per-stage HUD snapshots */
+    const hudData=[
+        { vram:'48GB', gen:'00', ppl:Infinity, fit:0,     kl:'--',   sp:'0%',  rank:'--' },
+        { vram:'14GB', gen:'01', ppl:154.3,    fit:0.006, kl:'∞',    sp:'0%',  rank:'C'  },
+        { vram:'14GB', gen:'02', ppl:140.1,    fit:0.008, kl:'0.031',sp:'0%',  rank:'C+' },
+        { vram:'18GB', gen:'03', ppl:110.0,    fit:0.010, kl:'0.018',sp:'0%',  rank:'B'  },
+        { vram:'18GB', gen:'04', ppl:80.2,     fit:0.012, kl:'0.012',sp:'0%',  rank:'S'  },
+        { vram:'9GB',  gen:'05', ppl:80.2,     fit:0.012, kl:'0.012',sp:'50%', rank:'S+' },
+    ];
+
+    /* ── helpers ── */
+    function $id(id){ return document.getElementById(id); }
+    function sim(){ return $id('sim'); }
+    function clearSim(){ sim().innerHTML=''; }
+
+    function setStageLbl(t){
+        const el=$id('stage-lbl');
+        el.textContent=t;
+        el.style.animation='none';
+        requestAnimationFrame(()=>{ el.style.animation='slideInTop .3s ease'; });
+    }
+
+    function updateHUD(i){
+        const d=hudData[i];
+        $id('h-vram').textContent=d.vram;
+        $id('h-gen').textContent=d.gen;
+        $id('h-ppl').textContent=isFinite(d.ppl)?d.ppl.toFixed(1):'∞';
+        $id('h-fit').textContent=d.fit.toFixed(3);
+        $id('s-kl').textContent=d.kl;
+        $id('s-sp').textContent=d.sp;
+        $id('s-rank').textContent=d.rank;
+        $id('con-phase').textContent=d.gen;
+        // health bar: simulate fitness progress
+        $id('health-fill').style.width=(40+d.fit/0.012*55)+'%';
+    }
+
+    function updateDots(i){
+        for(let k=0;k<6;k++){
+            const el=$id('pd'+k);
+            if(k<i){ el.style.background='var(--cpu)'; el.style.borderColor='var(--cpu)'; }
+            else if(k===i){ el.style.background='var(--gld)'; el.style.borderColor='var(--gld)'; }
+            else{ el.style.background='#111'; el.style.borderColor='#333'; }
+        }
+    }
+
+    function updateCharts(){
+        renderChart('ppl-chart', pplHist, v=>isFinite(v)?Math.min(1,v/200):1,
+            v=>isFinite(v)?Math.round(v):'∞',
+            v=>{ const r=isFinite(v)?v/200:1; return r>.65?'#ff0055':r>.35?'#ffd700':'#00ff88'; });
+        renderChart('fit-chart', fitHist, v=>v/0.013,
+            v=>v.toFixed(3),
+            v=>v<0.005?'#ff0055':v<0.01?'#ffd700':'#00ff88');
+    }
+
+    function renderChart(id, data, normFn, labelFn, colorFn){
+        const el=$id(id);
+        if(!el) return;
+        const maxH=el.offsetHeight||70;
+        el.innerHTML='';
+        data.forEach(v=>{
+            const frac=Math.min(1,Math.max(0,normFn(v)));
+            const h=Math.max(2,Math.floor(frac*maxH));
+            const c=colorFn(v);
+            el.innerHTML+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:${maxH}px;">` +
+                `<div style="width:100%;height:${h}px;background:${c};transition:height 1s;"></div>` +
+                `<div style="font-size:4px;color:#444;margin-top:1px;">${labelFn(v)}</div></div>`;
+        });
+    }
+
+    /* ── console ── */
+    async function log(html, cls='', delay=90){
+        await wait(delay);
+        const line=document.createElement('div');
+        line.style.cssText='font-size:11px; line-height:1.6; color:#aaa;';
+        if(cls) line.className=cls;
+        line.innerHTML=`<span style="color:#333; margin-right:4px;">›</span>${html}`;
+        $id('con-out').appendChild(line);
+        $id('con-wrap').scrollTop=9e9;
+        if(window.MathJax?.typesetPromise) await window.MathJax.typesetPromise([line]);
+    }
+    async function logH(text){
+        await wait(60);
+        const line=document.createElement('div');
+        line.style.cssText='font-size:10px; color:var(--g1); border-top:1px solid #111; padding-top:6px; margin-top:2px;';
+        line.textContent='══ '+text+' ══';
+        $id('con-out').appendChild(line);
+        $id('con-wrap').scrollTop=9e9;
+    }
+
+    function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+    function spawnParticle(container, color, anim, top, left, size=8){
+        const p=document.createElement('div');
+        p.style.cssText=`position:absolute;width:${size}px;height:${size}px;border-radius:50%;`+
+            `background:${color};box-shadow:0 0 8px ${color};`+
+            `left:${left}%;top:${top}%;animation:${anim};`;
+        container.appendChild(p);
+        setTimeout(()=>p.remove(),1800);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       STAGE 0 — ASYNC DISTILLATION  "La Lluvia de Orbes"
+    ══════════════════════════════════════════════════════════ */
+    async function stage0(){
+        clearSim();
+        setStageLbl('FASE 1: DARK KNOWLEDGE');
+        updateHUD(0); updateDots(0);
+
+        const s=sim();
+        s.innerHTML=`
+        <!-- BRAIN TANK (GPU0 zone) -->
+        <div id="tank" style="position:absolute;left:5%;top:10%;width:26%;height:78%;
+             border:3px solid #555;background:rgba(0,8,0,.85);">
+            <div style="position:absolute;top:3px;left:50%;transform:translateX(-50%);font-size:5px;color:#444;">ORACLE_TANK</div>
+            <div id="liq" style="position:absolute;bottom:0;left:0;right:0;height:55%;
+                 background:rgba(0,255,40,.07);border-top:1px solid rgba(0,255,80,.25);
+                 animation:liquidRise 2s ease-in-out infinite;"></div>
+            <div id="brain-sp" style="position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);
+                 animation:brainPulse 2s ease-in-out infinite;">
+                ${makeSprite('brain',5)}
+            </div>
+        </div>
+        <!-- TOP-K label -->
+        <div style="position:absolute;left:33%;top:4%;font-size:6px;color:#333;">← TOP-K KNOWLEDGE STREAM →</div>
+        <!-- Robot track -->
+        <div id="bot-track" style="position:absolute;left:33%;right:0;top:68%;height:30px;"></div>
+        <!-- Orb spawn zone label -->
+        <div style="position:absolute;right:4%;top:4%;font-size:6px;color:var(--g1);border:1px solid var(--g1);padding:3px;">
+            KL_T=4.0
+        </div>`;
+
+        /* spawn robots */
+        ['#00f5ff','#00ff88'].forEach((c,i)=>{
+            const bot=document.createElement('div');
+            bot.style.cssText=`position:absolute;animation:robotRun ${3.2+i*1.2}s ${i*1.4}s linear infinite;`;
+            bot.innerHTML=makeSprite('botSmall',4)+
+                `<div style="position:absolute;top:-9px;left:4px;width:14px;height:9px;border:2px solid ${c};border-bottom:none;"></div>`;
+            $id('bot-track').appendChild(bot);
+        });
+
+        /* fire orbs */
+        let n=0;
+        const orbColors=['#bf00ff','#00f5ff','#ffd700','#ff6699','#00ff88','#ff9900'];
+        const orbTimer=setInterval(()=>{
+            if(n++>30){ clearInterval(orbTimer); return; }
+            const isTrash=Math.random()<.28;
+            const top=15+Math.random()*55;
+            const delay=Math.random()*.3;
+            const dur=.7+Math.random()*.5;
+            const col=isTrash?'#444':orbColors[n%orbColors.length];
+            const p=document.createElement('div');
+            p.style.cssText=`position:absolute;width:${isTrash?5:10}px;height:${isTrash?5:10}px;`+
+                `border-radius:50%;background:${col};box-shadow:${isTrash?'none':'0 0 8px '+col};`+
+                `left:25%;top:${top}%;animation:${isTrash?'trashAway':'orbShoot'} ${dur}s ${delay}s ease forwards;`;
+            s.appendChild(p);
+            setTimeout(()=>p.remove(),2000);
+        },320);
+
+        await logH('FASE 1 — DARK KNOWLEDGE EXTRACTION');
+        await log('Iniciando <code>AsyncOllamaTeacher</code>: conexión al 70B Oracle via aiohttp.', 'text-g1');
+        await log('El Oráculo dispara distribuciones de probabilidad suaves (<b>Dark Knowledge</b>).', '', 200);
+        await log('⚠ Vocabulario: 151,000 dimensiones — 99.97% son <span style="color:var(--alt);">ruido blanco</span> para el estudiante.', '', 200);
+        await log('Aplicando <b>Máscara Topológica Top-K</b> + Temperatura $T=4.0$:', '', 200);
+        await log('$$ \\mathcal{L}_{KD} = T^2 \\cdot \\frac{1}{|K|} \\sum_{i \\in K} P_i \\!\\left(\\log P_i - \\log Q_i\\right) $$', '', 300);
+        await log('Gradientes fluyendo limpiamente. Ruido gris descartado.', '', 300);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       STAGE 1 — LoRA GENOME  "El Mecha Congelado"
+    ══════════════════════════════════════════════════════════ */
+    async function stage1(){
+        clearSim();
+        setStageLbl('FASE 2: LoRA GENOME');
+        updateHUD(1); updateDots(1);
+
+        const s=sim();
+        s.innerHTML=`
+        <!-- FROZEN MECHA -->
+        <div id="mecha-w" style="position:absolute;left:18%;top:8%;animation:mechaIdle 2.5s ease-in-out infinite;">
+            ${makeSprite('mecha',9)}
+            <div style="position:absolute;top:-16px;left:0;font-size:6px;color:#8899bb;white-space:nowrap;">W₀: 3.4 GB [FROZEN]</div>
+        </div>
+        <!-- LOCK -->
+        <div id="lock" style="position:absolute;left:19%;top:6%;font-size:26px;opacity:0;transition:opacity .4s;">🔒</div>
+
+        <!-- DRONE with jetpacks -->
+        <div id="drone-w" style="position:absolute;left:62%;top:10%;animation:droneHover 1.2s ease-in-out infinite;transition:left 2.5s ease,top 2.5s ease;">
+            ${makeSprite('drone',5)}
+            <!-- propeller blur bars -->
+            <div style="position:absolute;top:-5px;left:2px;width:10px;height:3px;background:rgba(0,245,255,.6);animation:propSpin .08s linear infinite;"></div>
+            <div style="position:absolute;top:-5px;right:2px;width:10px;height:3px;background:rgba(0,245,255,.6);animation:propSpin .08s .04s linear infinite;"></div>
+            <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:5px;color:var(--g1);white-space:nowrap;">r=16 ADAPTER</div>
+            <!-- jetpack B -->
+            <div id="jpB" style="display:none;position:absolute;left:48px;top:0;
+                 width:14px;height:22px;background:var(--g0);border:2px solid #ff00ff;
+                 box-shadow:0 0 10px var(--g0);display:none;align-items:center;justify-content:center;">
+                <span style="font-size:6px;color:#000;">B</span></div>
+            <!-- jetpack A -->
+            <div id="jpA" style="display:none;position:absolute;left:66px;top:0;
+                 width:14px;height:22px;background:var(--g1);border:2px solid #00f5ff;
+                 box-shadow:0 0 10px var(--g1);display:none;align-items:center;justify-content:center;">
+                <span style="font-size:6px;color:#000;">A</span></div>
+        </div>
+
+        <!-- LoRA equation badge (hidden) -->
+        <div id="lora-eq" style="display:none;position:absolute;right:5%;top:12%;
+             border:2px solid var(--gld);padding:6px;background:rgba(0,0,0,.85);">
+            <div style="font-size:7px;color:var(--gld);">RANK-16 ACTIVE</div>
+            <div style="font-size:7px;color:var(--cpu);margin-top:4px;">25 MB / 3.4 GB</div>
+        </div>`;
+
+        /* lock drops in */
+        await wait(400);
+        const lock=$id('lock');
+        lock.style.opacity='1';
+        lock.style.transform='translateY(0)';
+
+        /* drone delivers jetpacks */
+        await wait(2200);
+        $id('jpB').style.display='flex';
+        $id('jpA').style.display='flex';
+        const dw=$id('drone-w');
+        dw.style.left='28%';
+        dw.style.top='4%';
+
+        /* mecha awakens */
+        await wait(3200);
+        const mw=$id('mecha-w');
+        if(mw){ mw.style.animation='mechaAwaken 2.5s forwards'; }
+        lock.style.opacity='0';
+        $id('lora-eq').style.display='block';
+
+        await logH('FASE 2 — DIMENSIONALIDAD INTRÍNSECA (LoRA)');
+        await log('Congelando $W_0 \\in \\mathbb{R}^{d \\times k}$ — peso base de 1.7B parámetros.', '', 0);
+        await log('Hipótesis (Aghajanyan 2020): los LLMs aprenden en un sub-espacio de baja dimensión.', '', 200);
+        await log('Insertando matrices de rango $r=16$:', '', 200);
+        await log('$$ W_{\\text{eff}} = W_0 + \\tfrac{\\alpha}{r} \\underbrace{B}_{d\\times r}\\,\\underbrace{A}_{r\\times k} $$', '', 300);
+        await log('Parámetros entrenables: <span style="color:var(--cpu);">25 MB</span> vs 3.4 GB — reducción del <b>99.3%</b>.', '', 400);
+        await log('Mecha levitando. ADN listo para clonación masiva.', '', 500);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       STAGE 2 — MUTATION  "La Fábrica de Clones"
+    ══════════════════════════════════════════════════════════ */
+    async function stage2(){
+        clearSim();
+        setStageLbl('FASE 3: MUTATION');
+        updateHUD(2); updateDots(2);
+
+        const s=sim();
+        s.innerHTML=`
+        <!-- Conveyor belt -->
+        <div style="position:absolute;left:0;right:0;top:62%;height:22px;
+             background:repeating-linear-gradient(90deg,#333 0,#333 14px,#555 14px,#555 20px);
+             animation:conveyorScroll .5s linear infinite;"></div>
+        <div style="position:absolute;left:0;right:0;top:60%;height:3px;background:#777;"></div>
+        <div style="position:absolute;left:0;right:0;top:84%;height:3px;background:#777;"></div>
+        <div style="position:absolute;left:3%;top:62%;width:18px;height:22px;border-radius:50%;background:#888;border:2px solid #aaa;"></div>
+        <div style="position:absolute;right:3%;top:62%;width:18px;height:22px;border-radius:50%;background:#888;border:2px solid #aaa;"></div>
+
+        <!-- UFO Mutator -->
+        <div id="ufo-w" style="position:absolute;left:50%;top:16%;animation:ufoHover 1.6s ease-in-out infinite;">
+            ${makeSprite('ufo',5)}
+            <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:6px;color:var(--g0);white-space:nowrap;">MUTATOR v3.1</div>
+        </div>
+        <!-- Laser beam -->
+        <div id="laser" style="position:absolute;left:50%;top:44%;width:4px;height:0;transform:translateX(-50%);
+             background:linear-gradient(to bottom,var(--g0),transparent);box-shadow:0 0 10px var(--g0);
+             transition:height .25s;"></div>
+
+        <!-- RAM badge -->
+        <div style="position:absolute;right:5%;top:5%;font-size:6px;color:var(--cpu);border:1px solid var(--cpu);padding:3px;">
+            RAM POOL: 6 GENOMES
+        </div>
+
+        <!-- Brain clone track -->
+        <div id="clone-track" style="position:absolute;left:0;right:0;top:53%;height:28px;"></div>`;
+
+        /* spawn clones */
+        const cloneColors=['#00ff88','#00f5ff','#00ff88','#bf00ff','#00ff88','#ffd700'];
+        const track=$id('clone-track');
+        cloneColors.forEach((col,i)=>{
+            const c=document.createElement('div');
+            c.id=`cl-${i}`;
+            c.style.cssText=`position:absolute;animation:brainSlide ${2.8+i*.4}s ${i*.55}s linear infinite;`;
+            c.innerHTML=`<div style="width:22px;height:22px;background:${col};border-radius:50%;
+                border:2px solid #fff;box-shadow:0 0 8px ${col};
+                display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:5px;color:#000;">${i+1}</span></div>`;
+            track.appendChild(c);
+        });
+
+        /* fire laser periodically */
+        let fires=0;
+        const laserTimer=setInterval(async ()=>{
+            if(fires++>9){ clearInterval(laserTimer); return; }
+            const laser=$id('laser');
+            if(!laser) return;
+            laser.style.height='78px';
+            /* pick random clone */
+            const target=track.children[Math.floor(Math.random()*track.children.length)];
+            if(target){
+                target.classList.add('glitching');
+                const inner=target.querySelector('div');
+                if(inner){ inner.style.boxShadow='0 0 18px #ff0055,0 0 40px #ff0055'; inner.style.borderColor='#ff0055'; }
+                setTimeout(()=>{
+                    target.classList.remove('glitching');
+                    if(inner){ inner.style.background='#ff6699'; inner.style.boxShadow='0 0 8px #ff6699'; inner.style.borderColor='#ff6699'; }
+                },450);
+            }
+            setTimeout(()=>{ if(laser) laser.style.height='0'; },280);
+        },950);
+
+        await logH('FASE 3 — CLONACIÓN & MUTACIÓN GAUSSIANA');
+        await log('Serializando adaptador LoRA (25 MB) a <code>CPU RAM</code>. Clonando × 6.', '', 0);
+        await log('Inyectando ruido gaussiano para exploración del espacio de hipótesis:', '', 200);
+        await log('$$ W_{\\text{mut}} = W_{\\text{elite}} + \\mathcal{N}(0,\\, \\sigma^2 I) $$', '', 300);
+        await log('$\\sigma$ controla radio de exploración. Demasiado alto → divergencia; bajo → estancamiento.', '', 300);
+        await log('Mutaciones aplicadas a subconjunto aleatorio. Diversidad genética garantizada.', '', 400);
+        await log('6 individuos en RAM. Enviando al Coliseo para evaluación...', '', 400);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       STAGE 3 — LAMARCKISM  "El Gimnasio"
+    ══════════════════════════════════════════════════════════ */
+    async function stage3(){
+        clearSim();
+        setStageLbl('FASE 4: LAMARCKISM');
+        updateHUD(3); updateDots(3);
+
+        const s=sim();
+        s.innerHTML=`
+        <!-- Gym header -->
+        <div style="position:absolute;left:34%;top:4%;font-size:7px;color:var(--g1);border-bottom:1px solid var(--g1);padding-bottom:2px;">GPU1: THE GYM</div>
+        <!-- Floor line -->
+        <div style="position:absolute;left:33%;right:0;bottom:22%;height:2px;background:#333;"></div>
+        <!-- CPU queue label -->
+        <div style="position:absolute;left:2%;top:5%;font-size:6px;color:var(--cpu);">CPU QUEUE</div>
+        <div id="cpu-q" style="position:absolute;left:2%;top:18%;display:flex;flex-direction:column;gap:5px;"></div>
+        <!-- Athletes -->
+        <div id="athletes" style="position:absolute;left:34%;right:4%;top:14%;bottom:22%;display:flex;align-items:flex-end;justify-content:space-around;gap:4px;"></div>
+        <!-- Step counter -->
+        <div id="step-ctr" style="position:absolute;right:4%;top:4%;font-size:7px;color:var(--g1);">STEPS: 0/5</div>`;
+
+        /* CPU queue items */
+        const q=$id('cpu-q');
+        for(let i=0;i<6;i++){
+            const item=document.createElement('div');
+            item.style.cssText='display:flex;align-items:center;gap:4px;';
+            item.innerHTML=`<div style="width:14px;height:14px;border-radius:50%;`+
+                `background:${i===0?'var(--gld)':'var(--cpu)'};opacity:${i===0?1:0.4};"></div>`+
+                `<span style="font-size:5px;color:#444;">IND_0${i}</span>`;
+            q.appendChild(item);
+        }
+
+        /* Athletes */
+        const athColors=['#ffd700','#00ff88','#00f5ff','#ff6699'];
+        const ranks=['S','A','B','C'];
+        const rColors=['#ffd700','#00ff88','#00f5ff','#ff0055'];
+        const athArea=$id('athletes');
+
+        for(let i=0;i<4;i++){
+            const ath=document.createElement('div');
+            ath.id=`ath-${i}`;
+            ath.style.cssText='position:relative;display:flex;flex-direction:column;align-items:center;flex:1;';
+            ath.innerHTML=
+                /* rank badge */
+                `<div id="rk-${i}" style="display:none;position:absolute;top:-28px;font-size:18px;font-weight:bold;`+
+                `color:${rColors[i]};animation:rankFlash .45s ease-in-out infinite;">${ranks[i]}</div>`+
+                /* body */
+                `<div style="width:18px;height:26px;background:${athColors[i]};border:2px solid #fff;`+
+                `position:relative;animation:weightLift ${.55+i*.08}s ease-in-out infinite alternate;">`+
+                    /* head */
+                    `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);`+
+                    `width:14px;height:10px;background:${athColors[i]};border:2px solid #fff;"></div>`+
+                    /* sweat drop */
+                    `<div class="sw" style="position:absolute;top:2px;right:-6px;width:4px;height:6px;`+
+                    `background:#00aaff;border-radius:50% 50% 50% 0;opacity:0;animation:sweatDrop .7s ${i*.2}s infinite;"></div>`+
+                `</div>`+
+                /* dumbbell */
+                `<div style="position:relative;width:34px;height:6px;background:#888;margin-top:3px;`+
+                `animation:weightLift ${.55+i*.08}s ease-in-out infinite alternate;">`+
+                    `<div style="position:absolute;left:-4px;width:8px;height:12px;background:#aaa;top:-3px;"></div>`+
+                    `<div style="position:absolute;right:-4px;width:8px;height:12px;background:#aaa;top:-3px;"></div>`+
+                    `<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:4px;color:#555;white-space:nowrap;">DATA</div>`+
+                `</div>`;
+            athArea.appendChild(ath);
+        }
+
+        /* step counter animation */
+        let st=0;
+        const stTimer=setInterval(()=>{
+            if(st>5){ clearInterval(stTimer); return; }
+            $id('step-ctr').textContent=`STEPS: ${st}/5`;
+            st++;
+        },600);
+
+        /* show ranks after training */
+        await wait(3200);
+        for(let i=0;i<4;i++){
+            const rk=$id(`rk-${i}`);
+            if(rk){ rk.style.display='block'; }
+        }
+        /* eliminate weakest */
+        await wait(600);
+        const last=$id('ath-3');
+        if(last){
+            last.style.transition='opacity .5s, transform .5s';
+            last.style.opacity='0';
+            last.style.transform='translateY(50px)';
+        }
+
+        await logH('FASE 4 — EVOLUCIÓN MEMÉTICA (LAMARCKISMO)');
+        await log('Los individuos aprenden <b>en vida</b> antes del fitness (memetic_steps=5).', '', 0);
+        await log('Descenso de gradiente AdamW en cada genoma en GPU1:', '', 200);
+        await log('$$ \\theta_{t+1} = \\theta_t - \\eta \\cdot \\frac{\\hat{m}_t}{\\sqrt{\\hat{v}_t}+\\varepsilon} - \\lambda\\,\\theta_t $$', '', 300);
+        await log('Lamarck tenía razón (aquí): los pesos mejorados se <b>heredan al ADN</b>.', '', 300);
+        await log('Fitness = $1\\,/\\,(1+\\text{PPL})$. Individuos rankeados. Los débiles son eliminados.', '', 400);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       STAGE 4 — TIES-MERGING  "La Fusión Quirúrgica DBZ"
+    ══════════════════════════════════════════════════════════ */
+    async function stage4(){
+        clearSim();
+        setStageLbl('FASE 5: TIES MERGE');
+        updateHUD(4); updateDots(4);
+
+        const s=sim();
+        s.innerHTML=`
+        <!-- Fusion ring -->
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+             width:75%;height:85%;border:2px dashed #222;border-radius:50%;"></div>
+        <div style="position:absolute;left:50%;top:5%;transform:translateX(-50%);
+             font-size:7px;color:var(--gld);">TIES FUSION CHAMBER (Yadav et al. 2023)</div>
+
+        <!-- Parent 1 -->
+        <div id="p1" style="position:absolute;left:8%;top:22%;transition:left 1.6s ease,opacity 1.6s ease;">
+            ${makeSprite('botElite',6)}
+            <div style="font-size:6px;color:var(--cpu);margin-top:3px;text-align:center;">ELITE_1</div>
+            <div id="au1" style="position:absolute;inset:-6px;border-radius:6px;
+                 box-shadow:0 0 18px var(--cpu);animation:auraGlow 1.2s infinite;"></div>
+        </div>
+
+        <!-- Parent 2 (hue-rotated) -->
+        <div id="p2" style="position:absolute;right:8%;top:22%;transition:right 1.6s ease,opacity 1.6s ease;">
+            <div style="filter:hue-rotate(200deg);">${makeSprite('botElite',6)}</div>
+            <div style="font-size:6px;color:var(--g1);margin-top:3px;text-align:center;">ELITE_2</div>
+            <div id="au2" style="position:absolute;inset:-6px;border-radius:6px;
+                 box-shadow:0 0 18px var(--g1);animation:auraGlow 1.2s .4s infinite;"></div>
+        </div>
+
+        <!-- Step label -->
+        <div id="step-lbl" style="position:absolute;left:50%;bottom:8%;transform:translateX(-50%);
+             font-size:7px;color:#555;text-align:center;white-space:nowrap;min-width:220px;"></div>
+
+        <!-- Laser saw -->
+        <div id="saw" style="display:none;position:absolute;left:50%;top:30%;transform:translateX(-50%);">
+            <div style="width:28px;height:28px;border-radius:50%;border:5px solid var(--alt);
+                 animation:sawSpin .28s linear infinite;
+                 box-shadow:0 0 12px var(--alt);"></div>
+        </div>
+
+        <!-- Magnet -->
+        <div id="mag" style="display:none;position:absolute;left:50%;top:4%;font-size:28px;
+             animation:magnetBob 1s ease-in-out infinite;">🧲</div>
+
+        <!-- Fusion flash -->
+        <div id="ff" style="display:none;position:absolute;inset:0;background:#fff;
+             animation:fusionFlash .8s ease forwards;"></div>
+
+        <!-- Super robot (hidden) -->
+        <div id="sup" style="display:none;position:absolute;left:50%;top:14%;transform:translateX(-50%);
+             animation:superBotIdle 1.5s ease-in-out infinite;">
+            ${makeSprite('superBot',8)}
+            <div style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);">
+                ${makeSprite('crown',5)}
+            </div>
+            <div style="font-size:8px;color:var(--gld);text-align:center;margin-top:6px;
+                 text-shadow:0 0 12px var(--gld);white-space:nowrap;">✦ SUPER-ELITE ✦</div>
+        </div>`;
+
+        const stepLbl=$id('step-lbl');
+
+        /* STEP 1 — TRIM */
+        await wait(500);
+        stepLbl.innerHTML='<span style="color:var(--alt);">STEP 1: TRIM — Filtrando 80% pesos débiles</span>';
+        $id('saw').style.display='block';
+        /* scatter screws */
+        for(let i=0;i<10;i++){
+            setTimeout(()=>{
+                const sc=document.createElement('div');
+                sc.style.cssText=`position:absolute;left:${18+Math.random()*64}%;top:${28+Math.random()*32}%;`+
+                    `width:4px;height:4px;background:#888;animation:trashAway .9s ease forwards;`;
+                s.appendChild(sc);
+                setTimeout(()=>sc.remove(),1000);
+            },i*200);
+        }
+
+        await wait(2200);
+
+        /* STEP 2 — ELECT */
+        $id('saw').style.display='none';
+        $id('mag').style.display='block';
+        stepLbl.innerHTML='<span style="color:var(--gld);">STEP 2: ELECT — Votación de signo magnético</span>';
+        $id('au1').style.boxShadow='0 0 35px var(--gld), 0 0 70px var(--gld)';
+        $id('au2').style.boxShadow='0 0 35px var(--gld), 0 0 70px var(--gld)';
+
+        await wait(2100);
+
+        /* STEP 3 — MERGE */
+        $id('mag').style.display='none';
+        stepLbl.innerHTML='<span style="color:var(--cpu);">STEP 3: MERGE — Fusión de sinapsis alineadas</span>';
+        const p1=$id('p1'), p2=$id('p2');
+        if(p1){ p1.style.left='38%'; p1.style.opacity='0'; }
+        if(p2){ p2.style.right='38%'; p2.style.opacity='0'; }
+
+        await wait(1600);
+        const ff=$id('ff');
+        ff.style.display='block';
+        await wait(850);
+        ff.style.display='none';
+        $id('sup').style.display='block';
+        stepLbl.innerHTML='<span style="color:var(--gld);">✦ SUPER-ELITE FORJADO — PPL: 80.2 ✦</span>';
+
+        await logH('FASE 5 — TIES-MERGING (Yadav et al. 2023)');
+        await log('Promedio lineal de redes: $W_{avg}=(W_1+W_2)/2$ → <span style="color:var(--alt);">lobotomía por interferencia de signos</span>.', '', 0);
+        await log('Ejemplo: peso $+0.5$ + peso $-0.5 = 0.0$ → neurona destruida.', '', 200);
+        await log('<b>STEP 1 — TRIM:</b> $W_{\\text{trim}} = W \\odot \\mathbf{1}_{|W|\\ge\\tau}$ (mantener top-20%).', '', 300);
+        await log('<b>STEP 2 — ELECT:</b> $\\gamma_i = \\operatorname{sgn}\\!\\bigl(\\sum_k W^{(k)}_{\\text{trim},i}\\bigr)$ (votación de dirección).', '', 300);
+        await log('<b>STEP 3 — MERGE:</b> $W_{\\text{merged}} = \\frac{1}{|K_i|}\\sum_{k:\\,\\operatorname{sgn}(W^{(k)}_i)=\\gamma_i}\\!W^{(k)}_i$', '', 300);
+        await log('Solo neuronas que "apuntan a la misma verdad" se fusionan. Sin aniquilación.', '', 400);
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       STAGE 5 — 2:4 SPARSITY  "La Prensa de Silicio"
+    ══════════════════════════════════════════════════════════ */
+    async function stage5(){
+        clearSim();
+        setStageLbl('FASE 6: 2:4 SPARSITY');
+        updateHUD(5); updateDots(5);
+
+        const s=sim();
+        /* Build 8×4 grid of cells */
+        let cellsHTML='';
+        for(let i=0;i<32;i++) cellsHTML+=`<div id="sc-${i}" style="width:100%;aspect-ratio:1;background:var(--cpu);border:1px solid #000;transition:all .5s;"></div>`;
+
+        s.innerHTML=`
+        <!-- Hydraulic press top -->
+        <div id="press-top" style="position:absolute;left:20%;right:20%;top:0;height:28px;background:#444;
+             border:3px solid #888;z-index:5;transition:transform 2s ease;">
+            <div style="width:28px;height:14px;background:#222;margin:6px auto;border:2px solid var(--alt);"></div>
+        </div>
+        <!-- X-ray label -->
+        <div style="position:absolute;left:20%;right:20%;top:30px;font-size:5px;color:#444;text-align:center;">
+            TENSOR CORE X-RAY // 2:4 CONSTRAINT</div>
+
+        <!-- 8×4 weight grid -->
+        <div id="grid" style="position:absolute;left:20%;right:20%;top:44px;bottom:26%;
+             display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:6px;
+             border:3px solid var(--g1);background:#000;">
+            ${cellsHTML}
+        </div>
+
+        <!-- Column labels -->
+        <div style="position:absolute;left:20%;right:20%;bottom:22%;display:flex;justify-content:space-around;font-size:5px;color:#333;">
+            <span>[0]</span><span>[1]</span><span>[2]</span><span>[3]</span></div>
+
+        <!-- MMA instruction badge -->
+        <div id="mma" style="position:absolute;left:4%;top:8%;opacity:0;transition:opacity 1s;">
+            <div style="animation:hwFlash .3s infinite;padding:4px;border:1px solid var(--cpu);background:#000;font-size:7px;">
+                mma.sp.sync ✓</div></div>
+
+        <!-- Speed lines -->
+        <div id="slines" style="display:none;position:absolute;inset:0;overflow:hidden;pointer-events:none;"></div>
+
+        <!-- Speed super-bot -->
+        <div id="s-bot" style="display:none;position:absolute;top:45%;transform:translateY(-50%);
+             animation:robotZoom 1.6s linear forwards;">
+            ${makeSprite('superBot',5)}
+            <div style="font-size:7px;color:var(--gld);white-space:nowrap;animation:deployPulse .8s infinite;">2× SPEED</div>
+        </div>
+
+        <!-- Deploy text -->
+        <div id="deploy" style="display:none;position:absolute;left:50%;bottom:4%;transform:translateX(-50%);text-align:center;white-space:nowrap;">
+            <div style="font-size:11px;color:var(--cpu);animation:deployPulse .7s infinite;">✦ DEPLOYMENT READY ✦</div>
+            <div style="font-size:6px;color:#555;margin-top:3px;">50% VRAM · 2× THROUGHPUT · TENSOR CORE NATIVE</div>
+        </div>`;
+
+        /* Press comes down */
+        await wait(700);
+        $id('press-top').style.transform='translateY(28px)';
+
+        /* Apply 2:4 pattern row by row */
+        await wait(1100);
+        for(let row=0;row<8;row++){
+            await wait(row*130);
+            const indices=[0,1,2,3];
+            const a=indices.splice(Math.floor(Math.random()*4),1)[0];
+            const b=indices.splice(Math.floor(Math.random()*3),1)[0];
+            for(let col=0;col<4;col++){
+                const cell=$id(`sc-${row*4+col}`);
+                if(!cell) continue;
+                if(col===a||col===b){
+                    cell.style.background='#0a0a0f';
+                    cell.style.boxShadow='inset 0 0 4px #000';
+                } else {
+                    cell.style.boxShadow='0 0 8px var(--cpu)';
+                }
+            }
+        }
+
+        /* MMA instruction appears */
+        await wait(1400);
+        $id('mma').style.opacity='1';
+
+        /* Speed lines */
+        await wait(800);
+        const sl=$id('slines');
+        sl.style.display='block';
+        for(let i=0;i<14;i++){
+            const ln=document.createElement('div');
+            const tp=8+Math.random()*82;
+            ln.style.cssText=`position:absolute;top:${tp}%;right:0;height:2px;`+
+                `width:${25+Math.random()*40}%;`+
+                `background:linear-gradient(to left,transparent,rgba(0,245,255,.65));`+
+                `animation:speedLine ${.35+Math.random()*.35}s ${i*.08}s linear infinite;`;
+            sl.appendChild(ln);
+        }
+
+        /* Speed bot runs */
+        $id('s-bot').style.display='block';
+
+        /* Deploy text */
+        await wait(1400);
+        $id('deploy').style.display='block';
+
+        await logH('FASE 6 — NVIDIA 2:4 SEMI-STRUCTURED SPARSITY');
+        await log('El Super-Elite ha sobrevivido la evolución. Iniciando cristalización de silicio.', '', 0);
+        await log('Arquitectura Ampere+: Sparse Tensor Cores operan en formato <code>2:4</code>.', '', 200);
+        await log('Restricción topológica: $\\|w_{4i:4i+3}\\|_0 \\le 2$ para cada fila (inner dim).', '', 300);
+        await log('<b>Algoritmo magnitude-based:</b> zeroing 2 smallest weights per group of 4.', '', 300);
+        await log('Invocando <code>to_sparse_semi_structured(w_masked)</code> — compresión física en PTX.', '', 300);
+        await log('<span style="color:var(--cpu);">RESULTADO: 50% VRAM · 2× throughput · zero software overhead.</span>', '', 400);
+        await log('<span style="color:var(--gld);font-size:12px;">✦ SISTEMA GÉNESIS OPERACIONAL. MODELO PRODUCTION-READY. ✦</span>', '', 500);
+    }
+
+    /* ──────────────────────────────────────────────────────────
+       PUBLIC INTERFACE
+    ────────────────────────────────────────────────────────── */
+    const runners=[stage0,stage1,stage2,stage3,stage4,stage5];
+    const btnLabels=[
+        'NEXT: LoRA GENOME »',
+        'NEXT: MUTATION »',
+        'NEXT: LAMARCKISM »',
+        'NEXT: TIES-MERGE »',
+        'NEXT: 2:4 SPARSITY »',
+        '↺ RESTART SYSTEM',
+    ];
+    const hints=[
+        'ASYNC DISTILLATION','LoRA GENOME','CLONE FACTORY','GYM / LAMARCK','TIES FUSION','SILICON PRESS'
+    ];
+
+    async function next(){
+        if(busy) return;
+        busy=true;
+        const btn=$id('go-btn');
+        btn.disabled=true;
+        btn.textContent='EXECUTING...';
+
+        stage=(stage+1)%runners.length;
+        if(stage===0){
+            $id('con-out').innerHTML='<span style="font-size:11px;color:var(--cpu);">&gt; SYSTEM RESET — RESTARTING GENESIS PIPELINE...</span>';
+            /* reset charts */
+            pplHist.fill(Infinity); fitHist.fill(0);
+            updateCharts();
+        }
+        $id('phase-hint').textContent=hints[stage];
+
+        await runners[stage]();
+        updateCharts();
+
+        btn.disabled=false;
+        btn.textContent=btnLabels[stage];
+        busy=false;
+    }
+
+    function init(){
+        updateCharts();
+    }
+
+    return { next, init };
+})();
+
+window.addEventListener('DOMContentLoaded', ()=>{ GM.init(); });
+</script>
+</body>
+</html>
