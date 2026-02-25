@@ -38,16 +38,17 @@ def slerp(
 
     # Compute angle between vectors
     dot = torch.clamp(torch.dot(v0_norm, v1_norm), -1.0, 1.0)
-    theta = torch.acos(dot)
 
-    # Handle edge cases
-    if theta.abs() < epsilon:
-        # Vectors are nearly parallel, use linear interpolation
-        result = (1 - t) * v0_flat + t * v1_flat
+    # Handle both nearly-identical (dot → +1) and antiparallel (dot → -1) vectors.
+    # In both cases sin(theta) → 0, causing division by zero in the SLERP formula.
+    # Fall back to LERP, which is the correct limit in both situations.
+    if torch.abs(dot) > 0.9995:
+        result = (1.0 - t) * v0_flat + t * v1_flat
     else:
+        theta = torch.acos(dot)
         sin_theta = torch.sin(theta)
         result = (
-            torch.sin((1 - t) * theta) / sin_theta * v0_flat
+            torch.sin((1.0 - t) * theta) / sin_theta * v0_flat
             + torch.sin(t * theta) / sin_theta * v1_flat
         )
 
@@ -64,6 +65,7 @@ def crossover(
     crossover_rate: float = 0.7,
     method: str = "slerp",
     slerp_ratio: float = 0.5,
+    ties_density: float = 0.2,
 ) -> dict[str, torch.Tensor]:
     """
     Perform crossover between two parent state dictionaries.
@@ -87,7 +89,10 @@ def crossover(
 
     keys = list(parent1_state.keys())
 
-    if method == "slerp":
+    if method == "ties":
+        return ties_crossover(parent1_state, parent2_state, density=ties_density)
+
+    elif method == "slerp":
         # SLERP-based crossover — performed on CPU to avoid GPU OOM
         for key in keys:
             if key in parent2_state:
@@ -124,7 +129,85 @@ def crossover(
                     child_state[key] = parent1_state[key].cpu().clone()
 
     else:
-        raise ValueError(f"Unknown crossover method: {method}")
+        raise ValueError(f"Unknown crossover method: {method} (choices: ties, slerp, uniform, single_point)")
+
+    return child_state
+
+
+def ties_crossover(
+    parent1_state: dict[str, torch.Tensor],
+    parent2_state: dict[str, torch.Tensor],
+    density: float = 0.2,
+) -> dict[str, torch.Tensor]:
+    """
+    TIES-Merging crossover (Yadav et al., 2023).
+
+    Plain weight averaging destroys knowledge because parameters from different
+    fine-tunes often have conflicting signs (sign interference).  TIES resolves
+    this in three steps for every tensor:
+
+      1. TRIM   — zero out the (1-density) fraction of weights with the
+                  smallest absolute value, keeping only the most salient ones.
+      2. ELECT  — decide the dominant sign per element by majority vote
+                  (sign of the trimmed sum).
+      3. MERGE  — average only the weights that agree with the elected sign;
+                  weights that conflict are treated as zero.
+
+    Args:
+        parent1_state: LoRA state dict of the first parent (CPU tensors).
+        parent2_state: LoRA state dict of the second parent (CPU tensors).
+        density: Fraction of weights to keep after trimming (0.2 = top 20%).
+
+    Returns:
+        Child state dict (CPU tensors, same dtypes as parent1).
+    """
+    child_state: dict[str, torch.Tensor] = {}
+
+    for key in parent1_state:
+        p1 = parent1_state[key].cpu()
+        if key not in parent2_state:
+            child_state[key] = p1.clone()
+            continue
+
+        p2 = parent2_state[key].cpu()
+        if p1.shape != p2.shape:
+            child_state[key] = p1.clone()
+            continue
+
+        orig_dtype = p1.dtype
+        p1f, p2f = p1.float(), p2.float()
+
+        # ── 1. TRIM ──────────────────────────────────────────────────────────
+        # Keep top-`density` fraction by absolute magnitude for each parent.
+        n = p1f.numel()
+        k1 = max(1, int(n * density))
+        k2 = max(1, int(n * density))
+
+        flat1, flat2 = p1f.flatten(), p2f.flatten()
+        # kthvalue gives the k-th *smallest*, so numel-k+1 gives the k-th largest.
+        thresh1 = torch.kthvalue(flat1.abs(), n - k1 + 1).values
+        thresh2 = torch.kthvalue(flat2.abs(), n - k2 + 1).values
+
+        p1_trim = torch.where(p1f.abs() >= thresh1, p1f, torch.zeros_like(p1f))
+        p2_trim = torch.where(p2f.abs() >= thresh2, p2f, torch.zeros_like(p2f))
+
+        # ── 2. ELECT SIGN ────────────────────────────────────────────────────
+        # The elected sign is the sign of the element-wise sum of trimmed weights.
+        # sign(0) = 0, but we need a non-zero direction; use p1_trim as tiebreak.
+        elected = torch.sign(p1_trim + p2_trim)
+        # Where the sum is exactly zero, fall back to parent-1's sign.
+        tiebreak = torch.sign(p1_trim)
+        elected = torch.where(elected == 0, tiebreak, elected)
+
+        # ── 3. DISJOINT MERGE ────────────────────────────────────────────────
+        # Average only the weights that agree with the elected sign.
+        p1_aligned = torch.where(torch.sign(p1_trim) == elected, p1_trim, torch.zeros_like(p1f))
+        p2_aligned = torch.where(torch.sign(p2_trim) == elected, p2_trim, torch.zeros_like(p2f))
+
+        count = (p1_aligned != 0).float() + (p2_aligned != 0).float()
+        merged = (p1_aligned + p2_aligned) / count.clamp(min=1.0)
+
+        child_state[key] = merged.to(orig_dtype)
 
     return child_state
 
@@ -205,6 +288,7 @@ class Genetics:
         adaptive_mutation: bool = True,
         mutation_decay: float = 0.95,
         min_mutation_rate: float = 0.01,
+        ties_density: float = 0.2,
     ):
         self.crossover_rate = crossover_rate
         self.mutation_rate = mutation_rate
@@ -215,6 +299,7 @@ class Genetics:
         self.adaptive_mutation = adaptive_mutation
         self.mutation_decay = mutation_decay
         self.min_mutation_rate = min_mutation_rate
+        self.ties_density = ties_density
 
         self._generation = 0
 
@@ -244,6 +329,7 @@ class Genetics:
             crossover_rate=self.crossover_rate,
             method=self.crossover_method,
             slerp_ratio=self.slerp_ratio,
+            ties_density=self.ties_density,
         )
 
         # Apply mutation

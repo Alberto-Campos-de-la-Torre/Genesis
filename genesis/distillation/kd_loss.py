@@ -35,6 +35,52 @@ def kl_divergence_loss(
     return kl_loss * (temperature**2)
 
 
+def topk_kl_divergence_loss(
+    student_logits: torch.Tensor,
+    teacher_probs: torch.Tensor,
+    temperature: float = 4.0,
+) -> torch.Tensor:
+    """
+    Noise-free Top-K KL divergence loss.
+
+    When a teacher only returns probabilities for its Top-K tokens (e.g. Ollama
+    top_logprobs), the remaining ~151 000 vocab positions have probability 0.
+    Standard KL divergence against a full softmax treats those zeros as a
+    uniform signal, forcing the student to learn "flat noise" for the vast
+    majority of the vocabulary and degrading its language model.
+
+    This function computes KL divergence **exclusively over the positions where
+    the teacher has non-zero probability**, eliminating the noise entirely.
+
+    Args:
+        student_logits: [batch, seq_len, vocab_size] — raw student logits.
+        teacher_probs:  [batch, seq_len, vocab_size] — sparse teacher
+                        probability tensor (zeros everywhere except Top-K).
+        temperature:    Softmax temperature (same as used when obtaining
+                        teacher_probs).
+
+    Returns:
+        Scalar loss = T² × mean D_KL(teacher_topk ‖ student_topk).
+    """
+    # Mask: positions where the teacher has actual signal (prob > 0)
+    mask = (teacher_probs > 0).float()
+
+    student_log_probs = F.log_softmax(student_logits / temperature, dim=-1)
+    # Avoid log(0) with a small epsilon; only matters on masked-out positions
+    teacher_log_probs = torch.log(teacher_probs + 1e-8)
+
+    # D_KL(P ‖ Q) = Σ P * (log P − log Q), summed over vocab
+    kl = teacher_probs * (teacher_log_probs - student_log_probs)
+
+    # Zero out positions where the teacher has no signal, then normalise
+    # by the number of valid (teacher-assigned) tokens rather than vocab size
+    masked_kl = (kl * mask).sum(dim=-1)           # [batch, seq_len]
+    n_valid = mask.sum(dim=-1).clamp(min=1.0)      # [batch, seq_len]
+    loss = (masked_kl / n_valid).mean()
+
+    return loss * (temperature ** 2)
+
+
 def soft_target_loss(
     student_logits: torch.Tensor,
     teacher_logits: torch.Tensor,
@@ -152,6 +198,7 @@ class KDLoss(nn.Module):
         self,
         temperature: float = 4.0,
         alpha: float = 0.5,
+        use_topk_kl: bool = True,
         use_feature_distillation: bool = False,
         feature_weight: float = 0.1,
         feature_layers: Optional[list[int]] = None,
@@ -169,6 +216,9 @@ class KDLoss(nn.Module):
             use_feature_distillation: Whether to use feature distillation
             feature_weight: Weight for feature distillation loss
             feature_layers: Layer indices for feature distillation
+            use_topk_kl: If True, use noise-free Top-K KL when teacher_probs
+                is a sparse tensor (zeros outside Top-K).  Falls back to full
+                KL when teacher provides dense logits.
             use_attention_distillation: Whether to use attention distillation
             attention_weight: Weight for attention distillation loss
             student_hidden_dim: Student hidden dimension (for projection)
@@ -177,6 +227,7 @@ class KDLoss(nn.Module):
         super().__init__()
         self.temperature = temperature
         self.alpha = alpha
+        self.use_topk_kl = use_topk_kl
         self.use_feature_distillation = use_feature_distillation
         self.feature_weight = feature_weight
         self.feature_layers = feature_layers or [-1]
@@ -223,12 +274,23 @@ class KDLoss(nn.Module):
         losses = {}
         total_loss = torch.tensor(0.0, device=student_logits.device)
 
-        # KL divergence loss (main distillation objective)
-        kd_loss = kl_divergence_loss(
-            student_logits,
-            teacher_logits,
-            temperature=self.temperature,
-        )
+        # KL divergence loss (main distillation objective).
+        # Use noise-free Top-K KL when the teacher tensor is sparse (most
+        # entries are exactly 0), otherwise use the standard full-vocab KL.
+        teacher_is_sparse = (teacher_logits == 0).float().mean() > 0.5
+        if self.use_topk_kl and teacher_is_sparse:
+            # teacher_logits is already a probability tensor when sparse
+            kd_loss = topk_kl_divergence_loss(
+                student_logits,
+                teacher_logits,
+                temperature=self.temperature,
+            )
+        else:
+            kd_loss = kl_divergence_loss(
+                student_logits,
+                teacher_logits,
+                temperature=self.temperature,
+            )
         losses["kd_loss"] = kd_loss
         total_loss = total_loss + self.alpha * kd_loss
 

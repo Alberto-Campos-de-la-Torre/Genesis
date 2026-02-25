@@ -351,6 +351,112 @@ class Pruner:
         self._original_weights.clear()
         logger.info("Pruning made permanent")
 
+    def apply_nvidia_2_4_sparsity(self) -> dict[str, float]:
+        """Apply hardware-accelerated 2:4 structured sparsity.
+
+        NVIDIA Ampere+ GPUs (A100, RTX 3090+) support 2:4 *semi-structured*
+        sparse matrices natively via Tensor Cores, delivering 2× speedup and
+        50 % VRAM reduction with no software emulation overhead.
+
+        The pattern "2:4" means exactly 2 non-zero values in every group of 4
+        consecutive elements along the inner dimension of each weight matrix.
+
+        **Scope**: applied to ``nn.Linear`` base-model layers only.
+        LoRA A/B adapter layers are excluded (they are too small and the
+        sparsity pattern would destroy the low-rank structure).
+
+        **Lifecycle**: call this *after* LoRA merge + full training is complete.
+        The conversion sets ``requires_grad = False`` on compressed layers —
+        they cannot be fine-tuned further in their compressed form.
+
+        Returns:
+            Dict with ``actual_sparsity`` (fraction of zeroed weights),
+            ``compressed_layers`` count, and ``method="nvidia_2:4"``.
+
+        Raises:
+            ImportError: if PyTorch < 2.1 (SparseSemiStructuredTensor missing).
+            RuntimeError: if CUDA is not available.
+        """
+        try:
+            from torch.sparse import to_sparse_semi_structured, SparseSemiStructuredTensor
+            SparseSemiStructuredTensor._FORCE_INT32_PTX = True
+        except ImportError:
+            raise ImportError(
+                "NVIDIA 2:4 sparsity requires PyTorch ≥ 2.1.  "
+                "Upgrade with: pip install torch --upgrade"
+            )
+
+        if not torch.cuda.is_available():
+            raise RuntimeError("NVIDIA 2:4 sparsity requires a CUDA-capable GPU.")
+
+        logger.info("Applying NVIDIA 2:4 semi-structured sparsity to base-model linear layers…")
+
+        total_params = 0
+        compressed_params = 0
+        compressed_layers = 0
+
+        with torch.no_grad():
+            for name, module in self.model.named_modules():
+                # Target only base-model Linear layers; skip LoRA A/B
+                if not isinstance(module, nn.Linear):
+                    continue
+                if "lora_" in name:
+                    continue
+                if any(skip in name for skip in self.config.skip_layers):
+                    continue
+
+                w = module.weight
+
+                # Hardware constraint: inner dimension must be divisible by 16,
+                # outer dimension by 8, and the tensor must be 2-D and on CUDA.
+                if w.dim() != 2:
+                    continue
+                if w.shape[0] % 8 != 0 or w.shape[1] % 16 != 0:
+                    logger.debug("Skipping %s — shape %s not divisible by 8×16", name, tuple(w.shape))
+                    continue
+                if w.device.type != "cuda":
+                    logger.debug("Skipping %s — not on CUDA", name)
+                    continue
+
+                total_params += w.numel()
+
+                # ── Build 2:4 mask by magnitude ──────────────────────────────
+                # Reshape into groups of 4, zero the 2 smallest-magnitude ones.
+                reshaped = w.abs().reshape(-1, 4)
+                _, smallest_idx = torch.topk(reshaped, k=2, dim=1, largest=False)
+                mask = torch.ones_like(reshaped)
+                mask.scatter_(1, smallest_idx, 0.0)
+                mask = mask.reshape_as(w)
+
+                # Apply mask to create the 2:4-sparse dense tensor
+                w_masked = w * mask
+
+                # ── Physical compression to SparseSemiStructuredTensor ────────
+                try:
+                    module.weight = nn.Parameter(
+                        to_sparse_semi_structured(w_masked), requires_grad=False
+                    )
+                    compressed_params += w.numel() // 2   # 50 % physical storage
+                    compressed_layers += 1
+                except Exception as exc:
+                    # Fall back to dense masked weight if compression fails
+                    logger.warning("2:4 compression failed for %s (%s), keeping dense", name, exc)
+                    w.data.copy_(w_masked)
+
+        torch.cuda.empty_cache()
+
+        actual_sparsity = compressed_params / max(1, total_params)
+        logger.info(
+            "2:4 sparsity applied: %d layers compressed, %.1f%% effective sparsity",
+            compressed_layers, actual_sparsity * 100,
+        )
+        return {
+            "actual_sparsity": actual_sparsity,
+            "compressed_layers": compressed_layers,
+            "total_params": total_params,
+            "method": "nvidia_2:4",
+        }
+
     @property
     def current_sparsity(self) -> float:
         """Get current sparsity level."""

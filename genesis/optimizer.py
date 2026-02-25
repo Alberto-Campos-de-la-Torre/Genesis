@@ -273,9 +273,16 @@ class EvolutionaryOptimizer:
         return results
 
     def _evaluate_population(self) -> None:
-        """Evaluate fitness of all individuals."""
+        """Evaluate fitness of all individuals.
+
+        If ``config.genetic.memetic_steps > 0`` each individual performs that
+        many gradient steps on the training data *before* fitness evaluation
+        and writes the updated weights back to its genome (Lamarckian / memetic
+        algorithm).  This lets gradient descent exploit the local neighbourhood
+        of each candidate, dramatically accelerating convergence compared to
+        pure genetic search.
+        """
         if self._fitness_evaluator is None:
-            # Create default fitness evaluator
             if self.eval_dataloader is not None:
                 self._fitness_evaluator = create_fitness_evaluator(
                     fitness_type="perplexity",
@@ -286,11 +293,51 @@ class EvolutionaryOptimizer:
             else:
                 raise ValueError("Fitness evaluator or eval_dataloader required")
 
+        memetic_steps = getattr(self.config.genetic, "memetic_steps", 0)
+
         def fitness_fn(state_dict: dict[str, torch.Tensor]) -> float:
-            # Load state into student model
+            # Load genome into student model
             self.student.load_state_dict(state_dict, strict=False)
 
-            # Evaluate
+            # ── Lamarckian micro-training ────────────────────────────────────
+            if memetic_steps > 0 and self.train_dataloader is not None:
+                self.student.model.train()
+                optimizer = torch.optim.AdamW(
+                    [p for p in self.student.model.parameters() if p.requires_grad],
+                    lr=5e-5,
+                )
+                batch_iter = iter(self.train_dataloader)
+                for _ in range(memetic_steps):
+                    try:
+                        batch = next(batch_iter)
+                    except StopIteration:
+                        break
+
+                    input_ids = batch["input_ids"].to(self.hardware.student_device)
+                    attention_mask = batch.get("attention_mask")
+                    if attention_mask is not None:
+                        attention_mask = attention_mask.to(self.hardware.student_device)
+                    labels = batch.get("labels", input_ids).to(self.hardware.student_device)
+
+                    optimizer.zero_grad()
+                    out = self.student.model(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        labels=labels,
+                    )
+                    out.loss.backward()
+                    torch.nn.utils.clip_grad_norm_(
+                        self.student.model.parameters(), max_norm=1.0
+                    )
+                    optimizer.step()
+
+                # Write the locally-improved weights back into the individual's
+                # genome so the next generation inherits the gradient refinement.
+                updated = self.student.get_state_dict(lora_only=True)
+                state_dict.update({k: v.cpu() for k, v in updated.items()})
+
+            # ── Fitness evaluation ───────────────────────────────────────────
+            self.student.model.eval()
             result = self._fitness_evaluator.evaluate(self.student.model)
             return result.score
 

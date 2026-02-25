@@ -4,8 +4,14 @@ Instead of loading a large model locally, this teacher delegates all
 inference to an Ollama server. Since all Qwen3 models share the same
 tokenizer (vocab_size=151936), soft targets from the Ollama teacher
 are directly usable in token-level KD loss with a Qwen3 student.
+
+Two classes are provided:
+  - OllamaTeacher  — synchronous (one request at a time)
+  - AsyncOllamaTeacher — async batch fetching via aiohttp, eliminating
+    the GPU starvation caused by the synchronous sequential HTTP loop.
 """
 
+import asyncio
 import math
 import logging
 import time
@@ -355,3 +361,133 @@ class OllamaTeacher:
             "num_parameters": 0,   # remote model
             "dtype": "remote",
         }
+
+
+# ── Async teacher ──────────────────────────────────────────────────────────────
+
+class AsyncOllamaTeacher(OllamaTeacher):
+    """Async-batch variant of OllamaTeacher.
+
+    The synchronous OllamaTeacher issues one HTTP request per batch, meaning
+    the GPU sits completely idle while waiting for the network round-trip.
+    This class fires all texts in a batch as *concurrent* aiohttp requests,
+    letting the GPU work on the previous batch while the next one is in-flight.
+
+    Usage — drop-in replacement::
+
+        teacher = AsyncOllamaTeacher(model_name="qwen3.5:cloud", base_url=...)
+        teacher.load()
+        # forward() signature identical to OllamaTeacher
+        outputs = teacher.forward(input_ids, attention_mask)
+
+    Requirements: ``pip install aiohttp``
+    """
+
+    def _fetch_completions_async(
+        self,
+        texts: list[str],
+        seq_len: int,
+        temperature: float,
+    ) -> list[dict | None]:
+        """Fire all texts concurrently and return raw Ollama JSON responses."""
+        try:
+            import aiohttp
+        except ImportError:
+            raise ImportError(
+                "AsyncOllamaTeacher requires aiohttp: pip install aiohttp"
+            )
+
+        payload_template = {
+            "model": self.model_name,
+            "max_tokens": seq_len,
+            "temperature": temperature,
+            "logprobs": True,
+            "top_logprobs": self.top_logprobs,
+            "stream": False,
+        }
+
+        async def _fetch_one(session: "aiohttp.ClientSession", text: str) -> dict | None:
+            payload = {**payload_template, "prompt": text}
+            try:
+                async with session.post(
+                    f"{self.base_url}/v1/completions",
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=120),
+                ) as resp:
+                    if resp.status == 200:
+                        return await resp.json()
+                    logger.warning("AsyncOllamaTeacher: status %d for text %.40r", resp.status, text)
+            except Exception as exc:
+                logger.warning("AsyncOllamaTeacher: request error: %s", exc)
+            return None
+
+        async def _fetch_all() -> list[dict | None]:
+            connector = aiohttp.TCPConnector(limit=len(texts))
+            async with aiohttp.ClientSession(connector=connector) as session:
+                tasks = [_fetch_one(session, t) for t in texts]
+                return await asyncio.gather(*tasks)
+
+        # Run in the current event loop if one exists, otherwise create a new one.
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # We're inside an already-running loop (e.g. Jupyter).
+                # Use a thread-based executor to avoid nest_asyncio dependency.
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                    future = pool.submit(asyncio.run, _fetch_all())
+                    return future.result()
+            return loop.run_until_complete(_fetch_all())
+        except RuntimeError:
+            return asyncio.run(_fetch_all())
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: Optional[torch.Tensor] = None,
+        output_hidden_states: bool = False,
+    ) -> dict:
+        """Async-batched forward pass — identical return contract to OllamaTeacher.
+
+        All texts in the batch are dispatched as concurrent HTTP requests.
+        When logprobs are not supported by the server the method degrades
+        gracefully to ``{"logits": None, "has_logprobs": False}``.
+        """
+        if not self._logprobs_supported:
+            return {"logits": None, "has_logprobs": False}
+
+        texts = self._ids_to_text(input_ids)
+        batch_size, seq_len = input_ids.shape
+        temperature = 1.0
+
+        responses = self._fetch_completions_async(texts, seq_len, temperature)
+
+        # Parse responses into a sparse prob tensor [B, seq_len, vocab_size]
+        all_probs: list[torch.Tensor] = []
+        any_valid = False
+
+        for resp in responses:
+            probs = torch.zeros(seq_len, self._vocab_size, dtype=torch.float32)
+            if resp is not None:
+                choices = resp.get("choices", [{}])
+                lp_data = (choices[0].get("logprobs") or {}) if choices else {}
+                top_lp = lp_data.get("top_logprobs", [])
+                for pos, token_dict in enumerate(top_lp[:seq_len]):
+                    for token_str, lp_val in (token_dict or {}).items():
+                        tok_ids = self._tokenizer.encode(
+                            token_str, add_special_tokens=False
+                        )
+                        if tok_ids and tok_ids[0] < self._vocab_size:
+                            probs[pos, tok_ids[0]] += math.exp(lp_val)
+                    # Renormalise this position
+                    s = probs[pos].sum()
+                    if s > 0:
+                        probs[pos] /= s
+                        any_valid = True
+            all_probs.append(probs)
+
+        if not any_valid:
+            return {"logits": None, "has_logprobs": False}
+
+        logits_tensor = torch.stack(all_probs, dim=0)  # [B, seq_len, vocab]
+        return {"logits": logits_tensor, "has_logprobs": True}
