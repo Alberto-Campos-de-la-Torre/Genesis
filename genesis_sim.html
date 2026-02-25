@@ -522,100 +522,122 @@ const GM = (() => {
     async function stage1(){
         clearSim(); setStageLbl('FASE 2: LoRA GENOME'); updateHUD(1); updateDots(1);
         const s=sim();
+
+        /* ── Drone + B + A all start at the RIGHT as separate elements
+              that move together via JS (same transition timing) ── */
         s.innerHTML=`
         <!-- FROZEN MECHA -->
-        <div id="mw" style="position:absolute;left:16%;top:8%;animation:mechaIdle 2.5s ease-in-out infinite;">
+        <div id="mw" style="position:absolute;left:14%;top:8%;animation:mechaIdle 2.5s ease-in-out infinite;">
             ${makeSprite('mecha',9)}
             <div class="lbl" style="position:absolute;top:-16px;left:0;">W₀: 3.4 GB [FROZEN]</div>
-            <!-- mecha slot B (left torso) -->
-            <div id="slot-b" style="position:absolute;left:6px;top:46px;width:18px;height:26px;
-                 border:2px dashed rgba(191,0,255,.4);background:rgba(191,0,255,.05);"></div>
-            <!-- mecha slot A (right torso) -->
-            <div id="slot-a" style="position:absolute;right:4px;top:46px;width:18px;height:26px;
-                 border:2px dashed rgba(0,245,255,.4);background:rgba(0,245,255,.05);"></div>
+            <div id="slot-b" style="position:absolute;left:4px;top:44px;width:20px;height:28px;
+                 border:2px dashed rgba(191,0,255,.35);background:rgba(191,0,255,.04);"></div>
+            <div id="slot-a" style="position:absolute;right:3px;top:44px;width:20px;height:28px;
+                 border:2px dashed rgba(0,245,255,.35);background:rgba(0,245,255,.04);"></div>
         </div>
         <!-- LOCK -->
-        <div id="lck" style="position:absolute;left:17%;top:6%;font-size:24px;opacity:0;
-             transition:opacity .4s;">🔒</div>
+        <div id="lck" style="position:absolute;left:15%;top:6%;font-size:24px;opacity:0;transition:opacity .4s;">🔒</div>
 
-        <!-- DRONE -->
-        <div id="dw" style="position:absolute;left:64%;top:8%;
-             animation:droneHover 1.2s ease-in-out infinite;
-             transition:left 2.2s ease,top 2.2s ease;">
-            <div style="position:absolute;top:-6px;left:0;width:10px;height:3px;
-                 background:rgba(0,245,255,.7);animation:propSpin .09s linear infinite;"></div>
-            <div style="position:absolute;top:-6px;right:0;width:10px;height:3px;
-                 background:rgba(0,245,255,.7);animation:propSpin .09s .05s linear infinite;"></div>
-            ${makeSprite('brain',0)}<!-- placeholder size -->
-            <div style="width:30px;height:16px;background:rgba(0,245,255,.12);border:2px solid var(--g1);
+        <!-- DRONE body — moves independently, same timing as matrices -->
+        <div id="drone-e" style="position:absolute;left:70%;top:6%;
+             animation:droneHover 1.1s ease-in-out infinite;
+             transition:left 2.8s ease,top 2.8s ease;">
+            <div style="position:absolute;top:-6px;left:-5px;width:13px;height:3px;
+                 background:rgba(0,245,255,.75);animation:propSpin .09s linear infinite;"></div>
+            <div style="position:absolute;top:-6px;right:-5px;width:13px;height:3px;
+                 background:rgba(0,245,255,.75);animation:propSpin .09s .05s linear infinite;"></div>
+            <div style="width:38px;height:18px;background:rgba(0,245,255,.12);border:2px solid var(--g1);
                  display:flex;align-items:center;justify-content:center;">
-                <span style="font-size:6px;color:var(--g1);">DRONE</span></div>
-            <div class="lbl" style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);">r=16 ADAPTER</div>
+                <span id="drone-lbl" style="font-size:5px;color:var(--g1);">DRONE</span></div>
+            <div class="lbl" style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);">ADAPTER DRONE</div>
+            <!-- hanging cable B -->
+            <div id="cable-b" style="position:absolute;left:6px;top:18px;width:2px;height:16px;background:rgba(191,0,255,.5);"></div>
+            <!-- hanging cable A -->
+            <div id="cable-a" style="position:absolute;right:6px;top:18px;width:2px;height:16px;background:rgba(0,245,255,.5);"></div>
         </div>
 
-        <!-- B matrix card (starts near drone) -->
-        <div id="box-b" style="position:absolute;left:62%;top:28%;
-             width:22px;height:32px;background:rgba(191,0,255,.85);
+        <!-- B matrix — starts hanging below drone, moves with same transition -->
+        <div id="box-b" style="position:absolute;left:67%;top:26%;
+             width:22px;height:32px;background:rgba(191,0,255,.88);
              border:2px solid #ff00ff;box-shadow:0 0 12px var(--g0);
              display:flex;flex-direction:column;align-items:center;justify-content:center;
-             transition:left 1.8s ease,top 1.8s ease;z-index:10;">
+             transition:left 2.8s ease,top 2.8s ease,opacity .6s ease;z-index:10;">
             <div style="font-size:7px;color:#fff;font-weight:bold;">B</div>
             <div style="font-size:4px;color:rgba(255,255,255,.7);">d×r</div>
         </div>
-        <!-- A matrix card -->
-        <div id="box-a" style="position:absolute;left:70%;top:28%;
-             width:22px;height:32px;background:rgba(0,245,255,.85);
+        <!-- A matrix -->
+        <div id="box-a" style="position:absolute;left:73%;top:26%;
+             width:22px;height:32px;background:rgba(0,245,255,.88);
              border:2px solid #00f5ff;box-shadow:0 0 12px var(--g1);
              display:flex;flex-direction:column;align-items:center;justify-content:center;
-             transition:left 1.8s ease,top 1.8s ease;z-index:10;">
+             transition:left 2.8s ease,top 2.8s ease,opacity .6s ease;z-index:10;">
             <div style="font-size:7px;color:#000;font-weight:bold;">A</div>
             <div style="font-size:4px;color:rgba(0,0,0,.7);">r×k</div>
         </div>
 
-        <!-- LoRA equation badge (hidden) -->
-        <div id="lora-eq" style="display:none;position:absolute;right:5%;top:10%;
+        <!-- LoRA badge (hidden) -->
+        <div id="lora-eq" style="display:none;position:absolute;right:4%;top:10%;
              border:2px solid var(--gld);padding:7px;background:rgba(0,0,0,.9);">
             <div style="font-size:7px;color:var(--gld);">RANK-16 ACTIVE ✓</div>
             <div style="font-size:7px;color:var(--cpu);margin-top:5px;">25 MB ← 3.4 GB</div>
             <div style="font-size:6px;color:#555;margin-top:3px;">ADN listo para clonar</div>
-        </div>`;
+        </div>
+        <!-- DNA chip (hidden, materialises after awakening) -->
+        <div id="dna-chip" style="display:none;position:absolute;left:18%;top:38%;
+             width:34px;height:18px;background:var(--gld);border:2px solid #fff;
+             box-shadow:0 0 12px var(--gld);font-size:5px;color:#000;
+             align-items:center;justify-content:center;">ADN 25MB</div>`;
 
         /* lock drops */
         await wait(400);
         $id('lck').style.opacity='1';
 
-        /* FIX: B and A cards fly into mecha slots */
-        await wait(2000);
-        /* slot-b is at mecha left:16% + 6px ≈ 17% left, top:8% + 46px ≈ top 29% */
-        const mw=$id('mw');
-        const vp=$id('viewport');
-        const mRect=mw ? mw.getBoundingClientRect() : null;
-        const vRect=vp ? vp.getBoundingClientRect() : null;
-        const slotBLeft = mRect && vRect ? ((mRect.left - vRect.left + 6) / vRect.width * 100).toFixed(1) : '17';
-        const slotALeft = mRect && vRect ? ((mRect.left - vRect.left + mRect.width - 26) / vRect.width * 100).toFixed(1) : '25';
-        const slotTop  = mRect && vRect ? ((mRect.top  - vRect.top  + 46) / vRect.height * 100).toFixed(1) : '38';
+        /* ── Drone + matrices fly LEFT together (same 2.8s transition) ── */
+        await wait(1400);
+        /* delivery position: drone above mecha, matrices hanging just above mecha slots */
+        $id('drone-e').style.left='16%';  $id('drone-e').style.top='4%';
+        $id('box-b').style.left='14%';    $id('box-b').style.top='24%';
+        $id('box-a').style.left='20%';    $id('box-a').style.top='24%';
 
-        const bxB=$id('box-b'), bxA=$id('box-a');
-        if(bxB){ bxB.style.left=slotBLeft+'%'; bxB.style.top=slotTop+'%'; }
-        if(bxA){ bxA.style.left=slotALeft+'%'; bxA.style.top=slotTop+'%'; }
+        /* ── Matrices slot into mecha (slide down into slots) ── */
+        await wait(3000);
+        $id('box-b').style.top='32%';
+        $id('box-a').style.top='32%';
+        /* hide cables now */
+        ['cable-b','cable-a'].forEach(id=>{ const el=$id(id); if(el) el.style.opacity='0'; });
 
-        /* mecha awakens after matrices arrive */
-        await wait(2000);
-        const slotB=$id('slot-b'), slotA=$id('slot-a');
-        if(slotB) slotB.style.cssText=slotB.style.cssText+'background:rgba(191,0,255,.5);box-shadow:inset 0 0 10px var(--g0);';
-        if(slotA) slotA.style.cssText=slotA.style.cssText+'background:rgba(0,245,255,.5);box-shadow:inset 0 0 10px var(--g1);';
+        await wait(800);
+        /* slots glow */
+        const sB=$id('slot-b'), sA=$id('slot-a');
+        if(sB){ sB.style.background='rgba(191,0,255,.5)'; sB.style.boxShadow='inset 0 0 12px var(--g0)'; sB.style.borderColor='#ff00ff'; }
+        if(sA){ sA.style.background='rgba(0,245,255,.5)'; sA.style.boxShadow='inset 0 0 12px var(--g1)'; sA.style.borderColor='#00f5ff'; }
+        /* hide matrices (slotted in) */
+        $id('box-b').style.opacity='0'; $id('box-a').style.opacity='0';
+
         $id('lck').style.opacity='0';
         const mecha=$id('mw');
         if(mecha) mecha.style.animation='mechaAwaken 2.5s forwards';
+
+        /* ── DNA chip appears → drone picks it up → drone flies right with ADN ── */
+        await wait(1400);
+        const chip=$id('dna-chip');
+        chip.style.display='flex';
+        await wait(700);
+        chip.style.display='none';
+        /* drone moves back right, now labeled with ADN */
+        const dl=$id('drone-lbl');
+        if(dl) dl.textContent='ADN ✓';
+        $id('drone-e').style.left='68%';
+        $id('drone-e').style.top='6%';
         $id('lora-eq').style.display='block';
 
         await logH('FASE 2 — DIMENSIONALIDAD INTRÍNSECA (LoRA)');
         await log('Congelando $W_0 \\in \\mathbb{R}^{d \\times k}$ — 1.7B parámetros, inmóvil.','',0);
-        await log('El Drone transporta dos matrices pequeñas <b>B</b> (magenta, $d\\!\\times\\!r$) y <b>A</b> (cyan, $r\\!\\times\\!k$).','',200);
-        await log('Las matrices se insertan en los <b>slots del Mecha</b> — el ADN ahora puede moverse:','',200);
+        await log('El Drone transporta <b>B</b> (magenta, $d\\!\\times\\!r$) y <b>A</b> (cyan, $r\\!\\times\\!k$) hacia el Mecha.','',200);
+        await log('Las matrices descienden a los <b>slots del torso</b> — el ADN puede moverse:','',200);
         await log('$$ W_{\\text{eff}} = W_0 + \\tfrac{\\alpha}{r} \\underbrace{B}_{d\\times r}\\,\\underbrace{A}_{r\\times k} $$','',300);
-        await log('Parámetros entrenables: <span style="color:var(--cpu);">25 MB</span> vs 3.4 GB — reducción del 99.3%.','',300);
-        await log('Mecha levitando. ADN (<b>25 MB</b>) listo para clonación masiva en CPU RAM.','',500);
+        await log('Parámetros entrenables: <span style="color:var(--cpu);">25 MB</span> vs 3.4 GB — 99.3% menos.','',300);
+        await log('Mecha levitando. El Drone recoge el ADN (25 MB) y lo lleva a la Fábrica de Clones.','',500);
     }
 
     /* ════════════════════════════════════════════
@@ -634,76 +656,93 @@ const GM = (() => {
         <div style="position:absolute;left:0;right:0;top:84%;height:3px;background:#666;"></div>
         <div style="position:absolute;left:2%;top:60%;width:20px;height:24px;border-radius:50%;background:#777;border:2px solid #aaa;"></div>
         <div style="position:absolute;right:2%;top:60%;width:20px;height:24px;border-radius:50%;background:#777;border:2px solid #aaa;"></div>
+
         <!-- UFO mutator -->
-        <div id="ufo-w" style="position:absolute;left:50%;top:14%;animation:ufoHover 1.6s ease-in-out infinite;">
+        <div id="ufo-w" style="position:absolute;left:50%;top:10%;animation:ufoHover 1.6s ease-in-out infinite;">
             ${makeSprite('ufo',5)}
             <div class="lbl" style="position:absolute;top:-16px;left:50%;transform:translateX(-50%);">MUTATOR v3.1</div>
         </div>
-        <!-- laser beam -->
-        <div id="laser" style="position:absolute;left:50%;top:42%;width:4px;height:0;transform:translateX(-50%);
-             background:linear-gradient(to bottom,var(--g0),transparent);
-             box-shadow:0 0 10px var(--g0);transition:height .22s;"></div>
+
+        <!-- PERSISTENT laser beam (always on, full height from UFO to conveyor) -->
+        <div id="laser" style="position:absolute;left:50%;top:34%;width:5px;height:28%;
+             transform:translateX(-50%);
+             background:linear-gradient(to bottom,var(--g0),rgba(191,0,255,.15));
+             box-shadow:0 0 14px var(--g0),0 0 28px rgba(191,0,255,.45);
+             transition:box-shadow .25s;"></div>
+
         <!-- RAM badge -->
         <div class="lbl" style="position:absolute;right:4%;top:5%;color:var(--cpu);">RAM POOL: 6 GENOMES</div>
         <!-- legend -->
         <div style="position:absolute;left:4%;top:5%;display:flex;gap:8px;align-items:center;">
             <div style="width:10px;height:10px;border-radius:50%;background:var(--cpu);box-shadow:0 0 6px var(--cpu);"></div>
-            <span class="lbl">ORIGINAL</span>
-            <div style="width:10px;height:10px;border-radius:50%;background:#ff6699;box-shadow:0 0 6px #ff6699;"></div>
+            <span class="lbl">ORIGINAL (sin mutar)</span>
+            <div style="width:10px;height:10px;border-radius:50%;background:#ff6699;box-shadow:0 0 6px #ff6699;margin-left:6px;"></div>
             <span class="lbl">MUTADO</span>
         </div>
         <!-- clone track -->
         <div id="ct" style="position:absolute;left:0;right:0;top:51%;height:30px;"></div>`;
 
-        /* FIX: ALL clones start the SAME green color */
-        const ORIG_COL='#00ff88';
-        const MUT_COLS=['#ff6699','#bf00ff','#ffd700','#00f5ff','#ff9900','#ff3333'];
-        let mutIdx=0;
+        /* ── Clone spawning: JS-driven so each clone ALWAYS starts green ──
+           Clones travel from left:-15% to right:112%.
+           The laser sits at viewport left:50%.
+           Journey fraction when crossing laser = (50-(-15))/(112-(-15)) ≈ 51%.
+           We fire the mutation callback at that exact moment.           ── */
+        const MUT_COLS=['#ff6699','#bf00ff','#ffd700','#00f5ff','#ff9900','#ff3355'];
+        let mutIdx=0, cloneIdx=0;
 
-        for(let i=0;i<6;i++){
-            const c=document.createElement('div');
-            c.id=`cl-${i}`;
-            c.style.cssText=`position:absolute;animation:cloneSlide ${2.6+i*.35}s ${i*.5}s linear infinite;`;
-            c.innerHTML=`<div class="clone-inner" style="width:22px;height:22px;background:${ORIG_COL};
-                border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px ${ORIG_COL};
-                display:flex;align-items:center;justify-content:center;">
-                <span style="font-size:5px;color:#000;">${i+1}</span></div>`;
-            $id('ct').appendChild(c);
-        }
+        function spawnClone(){
+            const track=$id('ct'); if(!track) return;
+            const num=(cloneIdx++%6)+1;
+            const dur=2800+Math.random()*700;  // ms to cross full width
+            const clone=document.createElement('div');
+            clone.style.cssText=`position:absolute;left:-15%;top:0;transition:left ${dur}ms linear;`;
+            clone.innerHTML=`<div class="clone-inner" style="width:22px;height:22px;
+                background:#00ff88;border-radius:50%;border:2px solid #fff;
+                box-shadow:0 0 8px #00ff88;display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:5px;color:#000;">${num}</span></div>`;
+            track.appendChild(clone);
 
-        /* FIX: laser fires and ONLY the hit clone changes color */
-        let fires=0;
-        addIval(()=>{
-            if(fires++>10) return;
-            const laser=$id('laser'); if(!laser) return;
-            laser.style.height='82px';
-            const ct=$id('ct'); if(!ct) return;
-            const targets=[...ct.children];
-            const tgt=targets[Math.floor(Math.random()*targets.length)];
-            if(tgt){
-                tgt.classList.add('glitching');
-                const inner=tgt.querySelector('.clone-inner');
+            /* start moving on next frame */
+            requestAnimationFrame(()=>requestAnimationFrame(()=>{ clone.style.left='112%'; }));
+
+            /* mutate exactly when crossing the laser (51% of travel time) */
+            if(Math.random()>.28){   /* 72% chance of mutation */
                 setTimeout(()=>{
-                    tgt.classList.remove('glitching');
-                    if(inner){
+                    const inner=clone.querySelector('.clone-inner');
+                    if(!inner||!clone.isConnected) return;
+                    clone.classList.add('glitching');
+                    /* flash the laser brighter on hit */
+                    const laser=$id('laser');
+                    if(laser){
+                        laser.style.boxShadow='0 0 28px var(--g0),0 0 56px rgba(191,0,255,.9)';
+                        setTimeout(()=>{ if(laser) laser.style.boxShadow='0 0 14px var(--g0),0 0 28px rgba(191,0,255,.45)'; },320);
+                    }
+                    setTimeout(()=>{
+                        clone.classList.remove('glitching');
                         const mc=MUT_COLS[mutIdx++%MUT_COLS.length];
                         inner.style.background=mc;
                         inner.style.boxShadow=`0 0 10px ${mc}`;
                         inner.style.borderColor=mc;
-                        inner.querySelector('span').style.color='#fff';
-                    }
-                },420);
+                        const sp=inner.querySelector('span');
+                        if(sp) sp.style.color='#fff';
+                    },370);
+                }, dur*0.51);
             }
-            setTimeout(()=>{ if(laser) laser.style.height='0'; },260);
-        },1000);
+
+            /* remove clone after it exits right */
+            setTimeout(()=>{ if(clone.isConnected) clone.remove(); }, dur+500);
+        }
+
+        /* spawn continuously while stage is active */
+        addIval(spawnClone, 650);
 
         await logH('FASE 3 — CLONACIÓN & MUTACIÓN GAUSSIANA');
-        await log('Serializando ADN (25 MB) a CPU RAM. <b>Clonando × 6</b> — todos idénticos (verde).','',0);
-        await log('El Mutador UFO elige individuos al azar y dispara el Rayo Radiactivo.','',200);
-        await log('Inyectando ruido gaussiano — solo los clones impactados cambian de color:','',200);
+        await log('El Drone deposita el ADN (25 MB) en CPU RAM. <b>Clonando × 6</b> — todos idénticos (verde).','',0);
+        await log('Los clones pasan por la cinta. El Rayo del Mutator es <b>persistente y siempre activo</b>.','',200);
+        await log('Al atravesar el rayo, el clon recibe ruido gaussiano y cambia de color:','',200);
         await log('$$ W_{\\text{mut}} = W_{\\text{elite}} + \\mathcal{N}(0,\\, \\sigma^2 I) $$','',300);
-        await log('$\\sigma$ controla la exploración. Alto → divergencia; bajo → estancamiento.','',300);
-        await log('Resultado: población diversa. Clones verdes = sin mutar; otros = mutados.','',400);
+        await log('Verde = sin mutar. Otro color = mutado. El rayo brilla más en cada impacto.','',300);
+        await log('Resultado: población diversa de 6 genomas. Enviando al Coliseo...','',400);
     }
 
     /* ════════════════════════════════════════════
