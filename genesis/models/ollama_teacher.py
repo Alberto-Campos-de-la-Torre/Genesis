@@ -133,13 +133,17 @@ class OllamaTeacher:
             )
 
     def _probe_logprobs(self) -> bool:
-        """Send a tiny test request and check whether logprobs are returned."""
+        """Send a tiny test request and check whether logprobs are returned.
+
+        Ollama ≥ 0.1.x exposes top_logprobs via /v1/chat/completions but NOT
+        via /v1/completions.  We probe the chat endpoint exclusively.
+        """
         try:
             resp = requests.post(
-                f"{self.base_url}/v1/completions",
+                f"{self.base_url}/v1/chat/completions",
                 json={
                     "model": self.model_name,
-                    "prompt": "Hi",
+                    "messages": [{"role": "user", "content": "Hi"}],
                     "max_tokens": 1,
                     "logprobs": True,
                     "top_logprobs": 1,
@@ -151,7 +155,8 @@ class OllamaTeacher:
             data = resp.json()
             choices = data.get("choices", [{}])
             lp = (choices[0].get("logprobs") or {}) if choices else {}
-            return bool(lp.get("top_logprobs") or lp.get("token_logprobs"))
+            content = lp.get("content", [])
+            return bool(content and content[0].get("top_logprobs"))
         except Exception:
             return False
 
@@ -249,13 +254,14 @@ class OllamaTeacher:
                 for attempt in range(3):
                     try:
                         response = requests.post(
-                            f"{self.base_url}/v1/completions",
+                            f"{self.base_url}/v1/chat/completions",
                             json={
                                 "model": model_name,
-                                "prompt": text,
+                                "messages": [{"role": "user", "content": text}],
                                 "max_tokens": seq_len,
                                 "temperature": temperature,
-                                "logprobs": self.top_logprobs,
+                                "logprobs": True,
+                                "top_logprobs": self.top_logprobs,
                                 "stream": False,
                             },
                             timeout=120,
@@ -280,8 +286,16 @@ class OllamaTeacher:
                         choices = data.get("choices", [{}])
                         if choices:
                             logprobs_data = choices[0].get("logprobs", {}) or {}
-                            token_logprobs = logprobs_data.get("top_logprobs", []) or []
-                            for t, tok_lp in enumerate(token_logprobs[:seq_len]):
+                            # /v1/chat/completions format: {"content": [{token, logprob, top_logprobs: [{token, logprob}]}]}
+                            content = logprobs_data.get("content", []) or []
+                            for t, token_entry in enumerate(content[:seq_len]):
+                                top_lp_list = token_entry.get("top_logprobs", []) or []
+                                # Convert [{token, logprob}, ...] → {token_str: logprob}
+                                tok_lp = {
+                                    e["token"]: e["logprob"]
+                                    for e in top_lp_list
+                                    if "token" in e and "logprob" in e
+                                }
                                 if tok_lp:
                                     dist = self._build_distribution(tok_lp, temperature)
                                     if dist.sum() > 0:
@@ -407,10 +421,10 @@ class AsyncOllamaTeacher(OllamaTeacher):
         }
 
         async def _fetch_one(session: "aiohttp.ClientSession", text: str) -> dict | None:
-            payload = {**payload_template, "prompt": text}
+            payload = {**payload_template, "messages": [{"role": "user", "content": text}]}
             try:
                 async with session.post(
-                    f"{self.base_url}/v1/completions",
+                    f"{self.base_url}/v1/chat/completions",
                     json=payload,
                     timeout=aiohttp.ClientTimeout(total=120),
                 ) as resp:
@@ -471,9 +485,13 @@ class AsyncOllamaTeacher(OllamaTeacher):
             if resp is not None:
                 choices = resp.get("choices", [{}])
                 lp_data = (choices[0].get("logprobs") or {}) if choices else {}
-                top_lp = lp_data.get("top_logprobs", [])
-                for pos, token_dict in enumerate(top_lp[:seq_len]):
-                    for token_str, lp_val in (token_dict or {}).items():
+                # /v1/chat/completions format: {"content": [{token, logprob, top_logprobs: [{token, logprob}]}]}
+                content = lp_data.get("content", []) or []
+                for pos, token_entry in enumerate(content[:seq_len]):
+                    top_lp_list = token_entry.get("top_logprobs", []) or []
+                    for entry in top_lp_list:
+                        token_str = entry.get("token", "")
+                        lp_val = entry.get("logprob", float("-inf"))
                         tok_ids = self._tokenizer.encode(
                             token_str, add_special_tokens=False
                         )

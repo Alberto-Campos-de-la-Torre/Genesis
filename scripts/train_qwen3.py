@@ -46,8 +46,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--ollama-model",
         type=str,
-        default=os.environ.get("OLLAMA_MODEL", "qwen3.5"),
-        help="Ollama model tag to use as primary teacher",
+        default=os.environ.get("OLLAMA_MODEL", "qwen3:30b-a3b"),
+        help="Ollama model tag to use as primary teacher (must be a local model for logprobs support)",
     )
     parser.add_argument(
         "--fallback-model",
