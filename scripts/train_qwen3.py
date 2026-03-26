@@ -58,6 +58,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--elite-size", type=int, default=2, help="Number of elite individuals preserved each generation")
     parser.add_argument("--mutation-scale", type=float, default=0.05, help="Scale of Gaussian mutation noise (higher = more exploration)")
     parser.add_argument("--mutation-rate", type=float, default=0.3, help="Per-generation probability of mutation occurring")
+    parser.add_argument("--crossover-method", type=str, default="ties",
+        choices=["slerp", "uniform", "single_point", "ties"],
+        help="Crossover operator for genetic evolution")
+    parser.add_argument("--ties-density", type=float, default=0.2,
+        help="Fraction of weights kept during TIES trimming (0–1; keep >= 0.1)")
+    parser.add_argument("--lamarckian", action="store_true", default=False,
+        help="Enable Lamarckian evolution: micro-train each individual before fitness eval")
+    parser.add_argument("--lamarckian-steps", type=int, default=3,
+        help="Gradient steps per individual during Lamarckian micro-training")
+    parser.add_argument("--lamarckian-lr", type=float, default=5e-5,
+        help="Learning rate for Lamarckian micro-training")
     parser.add_argument("--student-path", type=str, default=STUDENT_PATH, help="Path to student model")
     parser.add_argument("--device", type=str, default="cuda:0", help="Device for student model (distillation)")
     parser.add_argument("--eval-device", type=str, default="cuda:1", help="Device for population fitness evaluation (evolution phase)")
@@ -140,6 +151,9 @@ def main() -> None:
     console.print(f"Student    : [cyan]{args.student_path}[/cyan] on {args.device}")
     console.print(f"Steps      : {args.steps}  |  Generations: {args.generations}  |  Pop: {args.pop_size}")
     console.print(f"Elite size : {args.elite_size}  |  Mutation scale: {args.mutation_scale}  |  Mutation rate: {args.mutation_rate}")
+    console.print(f"Crossover  : [cyan]{args.crossover_method}[/cyan]" + (f"  |  TIES density: {args.ties_density}" if args.crossover_method == "ties" else ""))
+    if args.lamarckian:
+        console.print(f"Lamarckian : [green]ON[/green]  |  steps={args.lamarckian_steps}  |  lr={args.lamarckian_lr}")
     console.print(f"Devices    : distillation=[cyan]{args.device}[/cyan]  evolution eval=[cyan]{args.eval_device}[/cyan]")
 
     # ------------------------------------------------------------------
@@ -180,7 +194,7 @@ def _cpu_diversity(population) -> float:
 
 
 def _run_training(args, output_dir: Path, dashboard) -> None:
-    from genesis.models.ollama_teacher import OllamaTeacher
+    from genesis.models.ollama_teacher import AsyncOllamaTeacher
     from genesis.models.student import StudentModel
     from genesis.models.lora_manager import LoRAConfig
     from genesis.distillation.trainer import DistillationTrainer, TrainingConfig
@@ -188,8 +202,8 @@ def _run_training(args, output_dir: Path, dashboard) -> None:
     # ------------------------------------------------------------------
     # 2. Build teacher
     # ------------------------------------------------------------------
-    console.print("\n[bold]Setting up teacher (OllamaTeacher)…[/bold]")
-    teacher = OllamaTeacher(
+    console.print("\n[bold]Setting up teacher (AsyncOllamaTeacher)…[/bold]")
+    teacher = AsyncOllamaTeacher(
         model_name=args.ollama_model,
         base_url=args.ollama_host,
         tokenizer_path=args.student_path,  # shared Qwen3 tokenizer
@@ -307,6 +321,8 @@ def _run_training(args, output_dir: Path, dashboard) -> None:
             adaptive_mutation=True,
             mutation_decay=0.98,
             min_mutation_rate=0.05,
+            crossover_method=args.crossover_method,
+            ties_density=args.ties_density,
         )
         population = Population(size=args.pop_size, genetics=genetics, elite_size=args.elite_size)
         population.initialize_from_state_dicts(seed_states)
@@ -323,7 +339,56 @@ def _run_training(args, output_dir: Path, dashboard) -> None:
 
         for gen in range(1, args.generations + 1):
             console.print(f"  [cyan]Generation {gen}/{args.generations}…[/cyan]")
-            population.evaluate(fitness_fn)
+
+            if args.lamarckian:
+                # Lamarckian evolution: micro-train each individual before fitness eval,
+                # then write adapted weights back (inheritance of acquired characteristics).
+                import itertools
+                lamarck_opt = torch.optim.AdamW(
+                    [p for p in eval_student.model.parameters() if p.requires_grad],
+                    lr=args.lamarckian_lr,
+                )
+                train_iter = iter(train_loader)
+                for individual in population._individuals:
+                    # 1. Load individual's LoRA weights
+                    lora_mgr_eval.set_lora_state_dict(
+                        {k: v.to(args.eval_device) for k, v in individual.state_dict.items()},
+                        strict=False,
+                    )
+                    # 2. Micro-train N steps
+                    eval_student.model.train()
+                    for _ in range(args.lamarckian_steps):
+                        try:
+                            batch = next(train_iter)
+                        except StopIteration:
+                            train_iter = iter(train_loader)
+                            batch = next(train_iter)
+                        lamarck_opt.zero_grad()
+                        out = eval_student.model(
+                            input_ids=batch["input_ids"].to(args.eval_device),
+                            attention_mask=batch["attention_mask"].to(args.eval_device),
+                            labels=batch["labels"].to(args.eval_device),
+                        )
+                        out.loss.backward()
+                        torch.nn.utils.clip_grad_norm_(eval_student.model.parameters(), 1.0)
+                        lamarck_opt.step()
+                    # 3. Write adapted weights back (Lamarckian inheritance)
+                    individual.state_dict = {
+                        k: v.cpu() for k, v in lora_mgr_eval.get_lora_state_dict().items()
+                    }
+                    # 4. Evaluate fitness on adapted model
+                    individual.fitness = fitness_fn(individual.state_dict)
+                del lamarck_opt
+                # Replicate Population.evaluate() internal state updates
+                population._individuals.sort(key=lambda x: x.fitness, reverse=True)
+                population._best_fitness_history.append(population.best.fitness)
+                population._avg_fitness_history.append(population.average_fitness)
+                logger.info(
+                    f"Generation {gen} [Lamarckian]: "
+                    f"Best={population.best.fitness:.4f}, Avg={population.average_fitness:.4f}"
+                )
+            else:
+                population.evaluate(fitness_fn)
 
             best_ind = population.best
             avg_fit  = population.average_fitness
