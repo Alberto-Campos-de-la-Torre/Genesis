@@ -197,7 +197,10 @@ class DistillationTrainer:
                         **step_results,
                     }
                     self.training_logs.append(log_entry)
-                    logger.info(f"Step {self.global_step}: loss={avg_loss:.4f}")
+                    prog_info = ""
+                    if hasattr(self.kd_loss, "temperature") and hasattr(self.kd_loss, "initial_temperature"):
+                        prog_info = f"  T={self.kd_loss.temperature:.2f}  α={self.kd_loss.alpha:.2f}"
+                    logger.info(f"Step {self.global_step}: loss={avg_loss:.4f}{prog_info}")
                     log_window_loss = 0.0
                     log_window_steps = 0
 
@@ -329,6 +332,10 @@ class DistillationTrainer:
 
         self.scheduler.step()
         self.optimizer.zero_grad()
+
+        # Advance ProgressiveKDLoss curriculum if active
+        if hasattr(self.kd_loss, "step"):
+            self.kd_loss.step()
 
     @torch.no_grad()
     def evaluate(self) -> dict[str, float]:

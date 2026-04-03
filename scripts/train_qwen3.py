@@ -69,6 +69,17 @@ def parse_args() -> argparse.Namespace:
         help="Gradient steps per individual during Lamarckian micro-training")
     parser.add_argument("--lamarckian-lr", type=float, default=5e-5,
         help="Learning rate for Lamarckian micro-training")
+    # Progressive KD curriculum
+    parser.add_argument("--progressive-kd", action="store_true", default=False,
+        help="Use progressive KD curriculum: anneal temperature and alpha over training")
+    parser.add_argument("--kd-temp-start", type=float, default=10.0,
+        help="Initial temperature for progressive KD (high = soft/broad teacher signal)")
+    parser.add_argument("--kd-temp-end", type=float, default=1.0,
+        help="Final temperature for progressive KD (low = sharp/precise teacher signal)")
+    parser.add_argument("--kd-alpha-start", type=float, default=0.9,
+        help="Initial alpha for progressive KD (1.0 = full teacher, 0.0 = full hard labels)")
+    parser.add_argument("--kd-alpha-end", type=float, default=0.1,
+        help="Final alpha for progressive KD")
     parser.add_argument("--student-path", type=str, default=STUDENT_PATH, help="Path to student model")
     parser.add_argument("--device", type=str, default="cuda:0", help="Device for student model (distillation)")
     parser.add_argument("--eval-device", type=str, default="cuda:1", help="Device for population fitness evaluation (evolution phase)")
@@ -154,6 +165,8 @@ def main() -> None:
     console.print(f"Crossover  : [cyan]{args.crossover_method}[/cyan]" + (f"  |  TIES density: {args.ties_density}" if args.crossover_method == "ties" else ""))
     if args.lamarckian:
         console.print(f"Lamarckian : [green]ON[/green]  |  steps={args.lamarckian_steps}  |  lr={args.lamarckian_lr}")
+    if args.progressive_kd:
+        console.print(f"Prog. KD   : [green]ON[/green]  |  T {args.kd_temp_start}→{args.kd_temp_end}  |  α {args.kd_alpha_start}→{args.kd_alpha_end}")
     console.print(f"Devices    : distillation=[cyan]{args.device}[/cyan]  evolution eval=[cyan]{args.eval_device}[/cyan]")
 
     # ------------------------------------------------------------------
@@ -198,6 +211,7 @@ def _run_training(args, output_dir: Path, dashboard) -> None:
     from genesis.models.student import StudentModel
     from genesis.models.lora_manager import LoRAConfig
     from genesis.distillation.trainer import DistillationTrainer, TrainingConfig
+    from genesis.distillation.kd_loss import KDLoss, ProgressiveKDLoss
 
     # ------------------------------------------------------------------
     # 2. Build teacher
@@ -253,12 +267,28 @@ def _run_training(args, output_dir: Path, dashboard) -> None:
         warmup_steps=max(1, args.steps // 10),
     )
 
+    if args.progressive_kd:
+        kd_loss = ProgressiveKDLoss(
+            initial_temperature=args.kd_temp_start,
+            final_temperature=args.kd_temp_end,
+            initial_alpha=args.kd_alpha_start,
+            final_alpha=args.kd_alpha_end,
+            total_steps=args.steps,
+        )
+        console.print(
+            f"[cyan]ProgressiveKDLoss:[/cyan] T {args.kd_temp_start}→{args.kd_temp_end}  "
+            f"α {args.kd_alpha_start}→{args.kd_alpha_end}  over {args.steps} steps"
+        )
+    else:
+        kd_loss = KDLoss(temperature=training_config.temperature, alpha=training_config.alpha)
+
     trainer = DistillationTrainer(
         teacher=teacher,
         student=student,
         train_dataloader=train_loader,
         eval_dataloader=eval_loader,
         config=training_config,
+        kd_loss=kd_loss,
     )
 
     distill_results = trainer.train(callback=dashboard.update_distillation)
